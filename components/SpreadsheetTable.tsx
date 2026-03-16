@@ -157,7 +157,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef, memo } from 'react';
+import { useState, useEffect, useRef, memo, useCallback } from 'react';
 import { X, Plus } from 'lucide-react';
 import type { ColumnDef } from '@/lib/types';
 
@@ -199,6 +199,28 @@ const CellInput = memo(function CellInput({
 });
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+
+// Stable wrapper so onCommit never changes reference between renders
+const StableCell = memo(function StableCell({
+  rowId,
+  colKey,
+  value,
+  type,
+  onUpdate,
+}: {
+  rowId: string;
+  colKey: string;
+  value: string | number;
+  type: 'text' | 'number';
+  onUpdate: (id: string, key: string, value: string | number) => void;
+}) {
+  const handleCommit = useCallback(
+    (val: string | number) => onUpdate(rowId, colKey, val),
+    [rowId, colKey, onUpdate]
+  );
+  return <CellInput value={value} type={type} onCommit={handleCommit} />;
+});
+
 const TableRow = memo(function TableRow({
   row,
   idx,
@@ -237,10 +259,12 @@ const TableRow = memo(function TableRow({
               ))}
             </select>
           ) : (
-            <CellInput
+            <StableCell
+              rowId={row.id}
+              colKey={col.key}
               value={row[col.key] ?? ''}
               type={col.type === 'number' ? 'number' : 'text'}
-              onCommit={val => onUpdate(row.id, col.key, val)}
+              onUpdate={onUpdate}
             />
           )}
         </td>
