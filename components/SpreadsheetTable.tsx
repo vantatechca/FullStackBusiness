@@ -152,13 +152,16 @@
 // }
 
 
+
+
+
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, memo } from 'react';
 import { X, Plus } from 'lucide-react';
 import type { ColumnDef } from '@/lib/types';
 
-function CellInput({
+const CellInput = memo(function CellInput({
   value,
   type,
   onCommit,
@@ -193,9 +196,69 @@ function CellInput({
       className="w-full px-2 py-1.5 text-sm border-0 bg-transparent rounded focus:ring-1 focus:ring-[#3b82f6] outline-none"
     />
   );
-}
+});
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+const TableRow = memo(function TableRow({
+  row,
+  idx,
+  columns,
+  onUpdate,
+  onDelete,
+  readOnly,
+}: {
+  row: any;
+  idx: number;
+  columns: ColumnDef[];
+  onUpdate: (id: string, key: string, value: string | number) => void;
+  onDelete: (id: string) => void;
+  readOnly?: boolean;
+}) {
+  return (
+    <tr
+      className={`border-b border-gray-100 ${
+        idx % 2 === 1 ? 'bg-[#fafbfc]' : 'bg-white'
+      } hover:bg-blue-50/30 transition-colors`}
+    >
+      {columns.map(col => (
+        <td key={col.key} className="px-1.5 py-1">
+          {readOnly ? (
+            <span className="px-2 py-1 text-sm text-gray-700 block truncate">
+              {String(row[col.key] ?? '')}
+            </span>
+          ) : col.type === 'select' ? (
+            <select
+              value={String(row[col.key] ?? '')}
+              onChange={e => onUpdate(row.id, col.key, e.target.value)}
+              className="w-full px-2 py-1.5 text-sm border-0 bg-transparent rounded focus:ring-1 focus:ring-[#3b82f6] outline-none cursor-pointer"
+            >
+              {col.options?.map(opt => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          ) : (
+            <CellInput
+              value={row[col.key] ?? ''}
+              type={col.type === 'number' ? 'number' : 'text'}
+              onCommit={val => onUpdate(row.id, col.key, val)}
+            />
+          )}
+        </td>
+      ))}
+      {!readOnly && (
+        <td className="px-1.5 py-1 text-center">
+          <button
+            onClick={() => onDelete(row.id)}
+            className="p-1 rounded hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors"
+          >
+            <X size={14} />
+          </button>
+        </td>
+      )}
+    </tr>
+  );
+});
+
 interface SpreadsheetTableProps {
   columns: ColumnDef[];
   data: any[];
@@ -272,48 +335,15 @@ export default function SpreadsheetTable({
           </thead>
           <tbody>
             {data.map((row, idx) => (
-              <tr
+              <TableRow
                 key={row.id}
-                className={`border-b border-gray-100 ${
-                  idx % 2 === 1 ? 'bg-[#fafbfc]' : 'bg-white'
-                } hover:bg-blue-50/30 transition-colors`}
-              >
-                {columns.map(col => (
-                  <td key={col.key} className="px-1.5 py-1">
-                    {readOnly ? (
-                      <span className="px-2 py-1 text-sm text-gray-700 block truncate">
-                        {String(row[col.key] ?? '')}
-                      </span>
-                    ) : col.type === 'select' ? (
-                      <select
-                        value={String(row[col.key] ?? '')}
-                        onChange={e => onUpdate(row.id, col.key, e.target.value)}
-                        className="w-full px-2 py-1.5 text-sm border-0 bg-transparent rounded focus:ring-1 focus:ring-[#3b82f6] outline-none cursor-pointer"
-                      >
-                        {col.options?.map(opt => (
-                          <option key={opt} value={opt}>{opt}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <CellInput
-                        value={row[col.key] ?? ''}
-                        type={col.type === 'number' ? 'number' : 'text'}
-                        onCommit={val => onUpdate(row.id, col.key, val)}
-                      />
-                    )}
-                  </td>
-                ))}
-                {!readOnly && (
-                  <td className="px-1.5 py-1 text-center">
-                    <button
-                      onClick={() => onDelete(row.id)}
-                      className="p-1 rounded hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors"
-                    >
-                      <X size={14} />
-                    </button>
-                  </td>
-                )}
-              </tr>
+                row={row}
+                idx={idx}
+                columns={columns}
+                onUpdate={onUpdate}
+                onDelete={onDelete}
+                readOnly={readOnly}
+              />
             ))}
           </tbody>
         </table>
