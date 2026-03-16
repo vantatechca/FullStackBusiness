@@ -152,14 +152,12 @@
 // }
 
 
-
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, Plus } from 'lucide-react';
 import type { ColumnDef } from '@/lib/types';
 
-// Local-state input — types fast, only saves on blur
 function CellInput({
   value,
   type,
@@ -170,10 +168,12 @@ function CellInput({
   onCommit: (val: string | number) => void;
 }) {
   const [local, setLocal] = useState(String(value ?? ''));
+  const isFocused = useRef(false);
 
-  // Sync if external realtime update comes in (another user edited)
   useEffect(() => {
-    setLocal(String(value ?? ''));
+    if (!isFocused.current) {
+      setLocal(String(value ?? ''));
+    }
   }, [value]);
 
   return (
@@ -182,7 +182,9 @@ function CellInput({
       step={type === 'number' ? 'any' : undefined}
       value={local}
       onChange={e => setLocal(e.target.value)}
+      onFocus={() => { isFocused.current = true; }}
       onBlur={() => {
+        isFocused.current = false;
         const val = type === 'number'
           ? (local === '' ? 0 : parseFloat(local))
           : local;
@@ -283,7 +285,6 @@ export default function SpreadsheetTable({
                         {String(row[col.key] ?? '')}
                       </span>
                     ) : col.type === 'select' ? (
-                      // Selects are fine as controlled — single event, no typing lag
                       <select
                         value={String(row[col.key] ?? '')}
                         onChange={e => onUpdate(row.id, col.key, e.target.value)}
