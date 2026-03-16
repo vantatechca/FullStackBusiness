@@ -778,6 +778,8 @@ export default function DepartmentTeamSection({ departmentId }: DepartmentTeamSe
     );
   }
 
+  console.count('DepartmentTeamSection render');
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
