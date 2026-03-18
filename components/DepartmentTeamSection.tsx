@@ -730,7 +730,7 @@ const MemberCard = memo(function MemberCard({ member, onUpdate, onDelete }: Memb
 
 export default function DepartmentTeamSection({ departmentId }: DepartmentTeamSectionProps) {
   const { user } = useAuth();
-  const { data, loading } = useRealtimeTable<DepartmentTeamMember>('department_team_members', { column: 'department_id', value: departmentId });
+  const { data, loading, refetch } = useRealtimeTable<DepartmentTeamMember>('department_team_members', { column: 'department_id', value: departmentId });
 
   const sorted = [...data].sort((a, b) => {
     if (a.in_charge && !b.in_charge) return -1;
@@ -738,27 +738,28 @@ export default function DepartmentTeamSection({ departmentId }: DepartmentTeamSe
     return a.sort_order - b.sort_order;
   });
 
-  const handleAdd = useCallback(async () => {
-    await supabase.from('department_team_members').insert({
-      department_id: departmentId,
-      name: '',
-      in_charge: false,
-      reports_to: '',
-      hours_per_day: 8,
-      days_per_week: 5,
-      main_skills: '',
-      tasks_love: '',
-      tasks_hate: '',
-      salary: 0,
-      salary_currency: 'USD',
-      bonus_structure: false,
-      bonus_details: '',
-      assigned_projects: '',
-      notes: '',
-      sort_order: data.length,
-      created_by: user?.id ?? null,
-    });
-  }, [departmentId, data.length, user?.id]);
+const handleAdd = useCallback(async () => {
+  await supabase.from('department_team_members').insert({
+    department_id: departmentId,
+    name: '',
+    in_charge: false,
+    reports_to: '',
+    hours_per_day: 8,
+    days_per_week: 5,
+    main_skills: '',
+    tasks_love: '',
+    tasks_hate: '',
+    salary: 0,
+    salary_currency: 'USD',
+    bonus_structure: false,
+    bonus_details: '',
+    assigned_projects: '',
+    notes: '',
+    sort_order: data.length,
+    created_by: user?.id ?? null,
+  });
+  await refetch();
+}, [departmentId, data.length, user?.id, refetch]);
 
   const handleUpdate = useCallback(async (id: string, key: string, value: string | number | boolean) => {
     await supabase.from('department_team_members').update({ [key]: value }).eq('id', id);
