@@ -128,7 +128,7 @@ export default function RevenueSection({ departmentId }: { departmentId: string 
   }, []);
 
 const handleDelete = useCallback(async (id: string) => {
-  await supabase.from('department_team_members').delete().eq('id', id);
+  await supabase.from('revenue').delete().eq('id', id);
   setData(prev => prev.filter(row => row.id !== id));
 }, [setData]);
 

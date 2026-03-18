@@ -12,28 +12,36 @@ export default function GlobalExpensesView() {
   const [loading, setLoading] = useState(true);
   const { formatDisplay, rates } = useCurrency();
 
-  useEffect(() => {
-    const fetchExpenses = async () => {
-      const { data } = await supabase.from('expenses').select('*').order('created_at', { ascending: false });
-      if (data) {
-        setExpenses(data.map(e => ({
-          ...e,
-          dept_name: getDepartment(e.department_id)?.name || e.department_id,
-        })));
-      }
-      setLoading(false);
-    };
-    fetchExpenses();
+useEffect(() => {
+  const fetchExpenses = async () => {
+    const { data } = await supabase.from('expenses').select('*').order('created_at', { ascending: false });
+    if (data) {
+      setExpenses(data.map(e => ({
+        ...e,
+        dept_name: getDepartment(e.department_id)?.name || e.department_id,
+      })));
+    }
+    setLoading(false);
+  };
+  fetchExpenses();
 
-    const channel = supabase
-      .channel('global-expenses')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, () => {
-        fetchExpenses();
-      })
-      .subscribe();
+  const channel = supabase
+    .channel('global-expenses')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, () => {
+      fetchExpenses();
+    })
+    .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
-  }, []);
+  // ← add this: listen for deletes from ExpensesSection
+  const handler = () => fetchExpenses();
+  window.addEventListener('expenses-updated', handler);
+
+  return () => {
+    supabase.removeChannel(channel);
+    window.removeEventListener('expenses-updated', handler); // ← and cleanup
+  };
+}, []);
+
 
   const totalUSD = expenses.reduce((sum, e) => sum + convertToUSD(Number(e.amount) || 0, e.currency, rates), 0);
 

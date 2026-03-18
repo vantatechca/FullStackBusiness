@@ -640,14 +640,42 @@ export default function DepartmentTeamSection({ departmentId }: DepartmentTeamSe
     }
   }, [departmentId, data.length, user?.id, setData, refetch]);
 
-  const handleUpdate = useCallback(async (id: string, key: string, value: string | number | boolean) => {
-    await supabase.from('department_team_members').update({ [key]: value }).eq('id', id);
-  }, []);
+const handleUpdate = useCallback(async (id: string, key: string, value: string | number | boolean) => {
+  await supabase.from('department_team_members').update({ [key]: value }).eq('id', id);
+  setData(prev => prev.map(row => row.id === id ? { ...row, [key]: value } : row));
+}, [setData]);
 
 const handleDelete = useCallback(async (id: string) => {
+  const member = data.find(m => m.id === id);
+
   await supabase.from('department_team_members').delete().eq('id', id);
   setData(prev => prev.filter(row => row.id !== id));
-}, [setData]);
+
+  if (member?.name) {
+    const { data: teamMember } = await supabase
+      .from('team_members')
+      .select('id, departments')
+      .eq('name', member.name)
+      .maybeSingle();
+
+    if (teamMember) {
+      const updatedDepts = (teamMember.departments || '')
+        .split(',')
+        .map((d: string) => d.trim())
+        .filter((d: string) => d && d !== departmentId)
+        .join(',');
+
+      await supabase
+        .from('team_members')
+        .update({ departments: updatedDepts })
+        .eq('id', teamMember.id);
+
+      // ← signal TeamView to refetch
+      window.dispatchEvent(new CustomEvent('team-members-updated'));
+    }
+  }
+}, [data, setData, departmentId]);
+
 
   if (loading) {
     return (

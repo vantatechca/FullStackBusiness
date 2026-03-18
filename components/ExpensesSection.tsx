@@ -132,8 +132,9 @@ export default function ExpensesSection({ departmentId }: { departmentId: string
   }, []);
 
 const handleDelete = useCallback(async (id: string) => {
-  await supabase.from('department_team_members').delete().eq('id', id);
+  await supabase.from('expenses').delete().eq('id', id);
   setData(prev => prev.filter(row => row.id !== id));
+  window.dispatchEvent(new CustomEvent('expenses-updated')); // ← add this
 }, [setData]);
 
   return (
