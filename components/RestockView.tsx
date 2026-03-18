@@ -71,7 +71,6 @@
 // }
 
 
-
 'use client';
 
 import { useCallback } from 'react';
@@ -95,7 +94,7 @@ const columns: ColumnDef[] = [
 ];
 
 export default function RestockView() {
-  const { data, loading, refetch } = useRealtimeTable<Supplier>('suppliers');
+  const { data, loading, setData, refetch } = useRealtimeTable<Supplier>('suppliers');
   const { formatDisplay, rates } = useCurrency();
 
   const totalCOGS = data.reduce((sum, s) => {
@@ -104,18 +103,27 @@ export default function RestockView() {
   }, 0);
 
   const handleAdd = useCallback(async () => {
-    await supabase.from('suppliers').insert({
-      name: '',
-      product: '',
-      cogs: 0,
-      currency: 'USD',
-      qty: 0,
-      contact: '',
-      status: 'Pending',
-      notes: '',
-    });
-    await refetch();
-  }, [refetch]);
+    const { data: inserted } = await supabase
+      .from('suppliers')
+      .insert({
+        name: '',
+        product: '',
+        cogs: 0,
+        currency: 'USD',
+        qty: 0,
+        contact: '',
+        status: 'Pending',
+        notes: '',
+      })
+      .select()
+      .single();
+
+    if (inserted) {
+      setData(prev => [...prev, inserted]);
+    } else {
+      await refetch();
+    }
+  }, [setData, refetch]);
 
   const handleUpdate = useCallback(async (id: string, key: string, value: string | number) => {
     await supabase.from('suppliers').update({ [key]: value }).eq('id', id);

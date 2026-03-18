@@ -368,7 +368,6 @@
 
 
 
-
 'use client';
 
 import { useState, useCallback, useRef, memo } from 'react';
@@ -390,51 +389,27 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
   return <span className="text-[11px] font-semibold text-[#64748b] uppercase tracking-wider">{children}</span>;
 }
 
-// Reusable local-state text input — only commits on blur
 function LocalInput({
-  value,
-  onChange,
-  placeholder,
-  className,
-  type = 'text',
-  step,
-  min,
-  max,
+  value, onChange, placeholder, className, type = 'text', step, min, max,
 }: {
-  value: string | number;
-  onChange: (val: string | number) => void;
-  placeholder?: string;
-  className: string;
-  type?: 'text' | 'number';
-  step?: string;
-  min?: string;
-  max?: string;
+  value: string | number; onChange: (val: string | number) => void; placeholder?: string;
+  className: string; type?: 'text' | 'number'; step?: string; min?: string; max?: string;
 }) {
   const [local, setLocal] = useState(String(value ?? ''));
   const isFocused = useRef(false);
-
-  // sync from outside only when not focused
   const prevValue = useRef(value);
   if (prevValue.current !== value && !isFocused.current) {
     prevValue.current = value;
     setLocal(String(value ?? ''));
   }
-
   return (
     <input
-      type={type}
-      step={step}
-      min={min}
-      max={max}
-      value={local}
-      placeholder={placeholder}
+      type={type} step={step} min={min} max={max} value={local} placeholder={placeholder}
       onChange={e => setLocal(e.target.value)}
       onFocus={() => { isFocused.current = true; }}
       onBlur={() => {
         isFocused.current = false;
-        const val = type === 'number'
-          ? (local === '' ? 0 : parseFloat(local))
-          : local;
+        const val = type === 'number' ? (local === '' ? 0 : parseFloat(local)) : local;
         onChange(val);
       }}
       className={className}
@@ -442,40 +417,24 @@ function LocalInput({
   );
 }
 
-// Reusable local-state textarea — only commits on blur
 function LocalTextarea({
-  value,
-  onChange,
-  placeholder,
-  rows,
-  className,
+  value, onChange, placeholder, rows, className,
 }: {
-  value: string;
-  onChange: (val: string) => void;
-  placeholder?: string;
-  rows?: number;
-  className: string;
+  value: string; onChange: (val: string) => void; placeholder?: string; rows?: number; className: string;
 }) {
   const [local, setLocal] = useState(value ?? '');
   const isFocused = useRef(false);
-
   const prevValue = useRef(value);
   if (prevValue.current !== value && !isFocused.current) {
     prevValue.current = value;
     setLocal(value ?? '');
   }
-
   return (
     <textarea
-      value={local}
-      placeholder={placeholder}
-      rows={rows}
+      value={local} placeholder={placeholder} rows={rows}
       onChange={e => setLocal(e.target.value)}
       onFocus={() => { isFocused.current = true; }}
-      onBlur={() => {
-        isFocused.current = false;
-        onChange(local);
-      }}
+      onBlur={() => { isFocused.current = false; onChange(local); }}
       className={className}
     />
   );
@@ -509,7 +468,6 @@ const MemberCard = memo(function MemberCard({ member, onUpdate, onDelete }: Memb
           <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${member.in_charge ? 'bg-amber-100' : 'bg-blue-50'}`}>
             {member.in_charge ? <Crown size={18} className="text-amber-500" /> : <User size={18} className="text-blue-400" />}
           </div>
-
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <LocalInput
@@ -522,7 +480,6 @@ const MemberCard = memo(function MemberCard({ member, onUpdate, onDelete }: Memb
                 <span className="flex-shrink-0 text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">IN CHARGE</span>
               )}
             </div>
-
             <div className="flex items-center gap-3 flex-wrap">
               <label className="flex items-center gap-1.5 cursor-pointer select-none">
                 <div
@@ -533,7 +490,6 @@ const MemberCard = memo(function MemberCard({ member, onUpdate, onDelete }: Memb
                 </div>
                 <span className="text-[11px] text-gray-500">Lead</span>
               </label>
-
               <div className="flex items-center gap-1">
                 <span className="text-[11px] text-gray-400">Reports to:</span>
                 <LocalInput
@@ -545,34 +501,17 @@ const MemberCard = memo(function MemberCard({ member, onUpdate, onDelete }: Memb
               </div>
             </div>
           </div>
-
           <div className="flex items-center gap-2 flex-shrink-0">
-            <button
-              onClick={() => setExpanded(v => !v)}
-              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-            >
+            <button onClick={() => setExpanded(v => !v)} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
               {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </button>
             {confirmDelete ? (
               <div className="flex items-center gap-1">
-                <button
-                  onClick={() => onDelete(member.id)}
-                  className="text-[11px] font-medium text-white bg-red-500 hover:bg-red-600 px-2 py-1 rounded transition-colors"
-                >
-                  Confirm
-                </button>
-                <button
-                  onClick={() => setConfirmDelete(false)}
-                  className="text-[11px] font-medium text-gray-500 hover:text-gray-700 px-2 py-1 rounded transition-colors"
-                >
-                  Cancel
-                </button>
+                <button onClick={() => onDelete(member.id)} className="text-[11px] font-medium text-white bg-red-500 hover:bg-red-600 px-2 py-1 rounded transition-colors">Confirm</button>
+                <button onClick={() => setConfirmDelete(false)} className="text-[11px] font-medium text-gray-500 hover:text-gray-700 px-2 py-1 rounded transition-colors">Cancel</button>
               </div>
             ) : (
-              <button
-                onClick={() => setConfirmDelete(true)}
-                className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
-              >
+              <button onClick={() => setConfirmDelete(true)} className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors">
                 <Trash2 size={15} />
               </button>
             )}
@@ -582,46 +521,19 @@ const MemberCard = memo(function MemberCard({ member, onUpdate, onDelete }: Memb
         <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div>
             <FieldLabel><Clock size={10} className="inline mr-1" />Hrs/Day</FieldLabel>
-            <LocalInput
-              type="number"
-              step="0.5"
-              min="0"
-              max="24"
-              value={member.hours_per_day}
-              onChange={val => onUpdate(member.id, 'hours_per_day', val)}
-              className="mt-0.5 w-full text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all"
-            />
+            <LocalInput type="number" step="0.5" min="0" max="24" value={member.hours_per_day} onChange={val => onUpdate(member.id, 'hours_per_day', val)} className="mt-0.5 w-full text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all" />
           </div>
           <div>
             <FieldLabel><Calendar size={10} className="inline mr-1" />Days/Week</FieldLabel>
-            <LocalInput
-              type="number"
-              step="0.5"
-              min="0"
-              max="7"
-              value={member.days_per_week}
-              onChange={val => onUpdate(member.id, 'days_per_week', val)}
-              className="mt-0.5 w-full text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all"
-            />
+            <LocalInput type="number" step="0.5" min="0" max="7" value={member.days_per_week} onChange={val => onUpdate(member.id, 'days_per_week', val)} className="mt-0.5 w-full text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all" />
           </div>
           <div>
             <FieldLabel><DollarSign size={10} className="inline mr-1" />Salary</FieldLabel>
-            <LocalInput
-              type="number"
-              step="any"
-              min="0"
-              value={member.salary}
-              onChange={val => onUpdate(member.id, 'salary', val)}
-              className="mt-0.5 w-full text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all"
-            />
+            <LocalInput type="number" step="any" min="0" value={member.salary} onChange={val => onUpdate(member.id, 'salary', val)} className="mt-0.5 w-full text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all" />
           </div>
           <div>
             <FieldLabel>Currency</FieldLabel>
-            <select
-              value={member.salary_currency}
-              onChange={e => onUpdate(member.id, 'salary_currency', e.target.value)}
-              className="mt-0.5 w-full text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all"
-            >
+            <select value={member.salary_currency} onChange={e => onUpdate(member.id, 'salary_currency', e.target.value)} className="mt-0.5 w-full text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all">
               {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
@@ -629,12 +541,7 @@ const MemberCard = memo(function MemberCard({ member, onUpdate, onDelete }: Memb
 
         <div className="mt-3">
           <FieldLabel><Star size={10} className="inline mr-1" />Main Skills</FieldLabel>
-          <LocalInput
-            value={member.main_skills}
-            onChange={val => onUpdate(member.id, 'main_skills', val)}
-            placeholder="e.g. SEO, Copywriting, Data Analysis"
-            className="mt-0.5 w-full text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all"
-          />
+          <LocalInput value={member.main_skills} onChange={val => onUpdate(member.id, 'main_skills', val)} placeholder="e.g. SEO, Copywriting, Data Analysis" className="mt-0.5 w-full text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all" />
         </div>
       </div>
 
@@ -643,45 +550,24 @@ const MemberCard = memo(function MemberCard({ member, onUpdate, onDelete }: Memb
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <FieldLabel><ThumbsUp size={10} className="inline mr-1 text-green-500" />Tasks They Love</FieldLabel>
-              <LocalTextarea
-                value={member.tasks_love}
-                onChange={val => onUpdate(member.id, 'tasks_love', val)}
-                placeholder="Describe tasks they enjoy..."
-                rows={3}
-                className="mt-0.5 w-full text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all resize-none"
-              />
+              <LocalTextarea value={member.tasks_love} onChange={val => onUpdate(member.id, 'tasks_love', val)} placeholder="Describe tasks they enjoy..." rows={3} className="mt-0.5 w-full text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all resize-none" />
             </div>
             <div>
               <FieldLabel><ThumbsDown size={10} className="inline mr-1 text-red-400" />Tasks They Dislike</FieldLabel>
-              <LocalTextarea
-                value={member.tasks_hate}
-                onChange={val => onUpdate(member.id, 'tasks_hate', val)}
-                placeholder="Describe tasks they dislike..."
-                rows={3}
-                className="mt-0.5 w-full text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all resize-none"
-              />
+              <LocalTextarea value={member.tasks_hate} onChange={val => onUpdate(member.id, 'tasks_hate', val)} placeholder="Describe tasks they dislike..." rows={3} className="mt-0.5 w-full text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all resize-none" />
             </div>
           </div>
 
           <div>
             <div className="flex items-center gap-3 mb-1">
               <FieldLabel>Bonus Structure</FieldLabel>
-              <div
-                onClick={() => onUpdate(member.id, 'bonus_structure', !member.bonus_structure)}
-                className={`relative w-8 h-4 rounded-full transition-colors cursor-pointer ${member.bonus_structure ? 'bg-green-400' : 'bg-gray-200'}`}
-              >
+              <div onClick={() => onUpdate(member.id, 'bonus_structure', !member.bonus_structure)} className={`relative w-8 h-4 rounded-full transition-colors cursor-pointer ${member.bonus_structure ? 'bg-green-400' : 'bg-gray-200'}`}>
                 <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${member.bonus_structure ? 'translate-x-4' : 'translate-x-0.5'}`} />
               </div>
               {member.bonus_structure && <span className="text-[11px] text-green-600 font-medium">Eligible</span>}
             </div>
             {member.bonus_structure && (
-              <LocalTextarea
-                value={member.bonus_details}
-                onChange={val => onUpdate(member.id, 'bonus_details', val)}
-                placeholder="Describe the bonus structure, conditions, amounts..."
-                rows={2}
-                className="w-full text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all resize-none"
-              />
+              <LocalTextarea value={member.bonus_details} onChange={val => onUpdate(member.id, 'bonus_details', val)} placeholder="Describe the bonus structure, conditions, amounts..." rows={2} className="w-full text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all resize-none" />
             )}
           </div>
 
@@ -691,36 +577,20 @@ const MemberCard = memo(function MemberCard({ member, onUpdate, onDelete }: Memb
               {ALL_PROJECTS.map(project => {
                 const active = selectedProjects.includes(project.id);
                 return (
-                  <button
-                    key={project.id}
-                    onClick={() => toggleProject(project.id)}
-                    className={`text-[11px] font-medium px-2.5 py-1 rounded-full border transition-all ${
-                      active
-                        ? 'bg-blue-500 text-white border-blue-500'
-                        : 'bg-white text-gray-500 border-gray-200 hover:border-blue-300 hover:text-blue-500'
-                    }`}
-                  >
+                  <button key={project.id} onClick={() => toggleProject(project.id)} className={`text-[11px] font-medium px-2.5 py-1 rounded-full border transition-all ${active ? 'bg-blue-500 text-white border-blue-500' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-300 hover:text-blue-500'}`}>
                     {project.name}
                   </button>
                 );
               })}
             </div>
             {selectedProjects.length > 0 && (
-              <p className="mt-1.5 text-[11px] text-gray-400">
-                {selectedProjects.length} project{selectedProjects.length !== 1 ? 's' : ''} assigned
-              </p>
+              <p className="mt-1.5 text-[11px] text-gray-400">{selectedProjects.length} project{selectedProjects.length !== 1 ? 's' : ''} assigned</p>
             )}
           </div>
 
           <div>
             <FieldLabel><StickyNote size={10} className="inline mr-1" />Notes</FieldLabel>
-            <LocalTextarea
-              value={member.notes}
-              onChange={val => onUpdate(member.id, 'notes', val)}
-              placeholder="Additional notes about this person..."
-              rows={2}
-              className="mt-0.5 w-full text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all resize-none"
-            />
+            <LocalTextarea value={member.notes} onChange={val => onUpdate(member.id, 'notes', val)} placeholder="Additional notes about this person..." rows={2} className="mt-0.5 w-full text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all resize-none" />
           </div>
         </div>
       )}
@@ -730,7 +600,7 @@ const MemberCard = memo(function MemberCard({ member, onUpdate, onDelete }: Memb
 
 export default function DepartmentTeamSection({ departmentId }: DepartmentTeamSectionProps) {
   const { user } = useAuth();
-  const { data, loading, refetch } = useRealtimeTable<DepartmentTeamMember>('department_team_members', { column: 'department_id', value: departmentId });
+  const { data, loading, setData, refetch } = useRealtimeTable<DepartmentTeamMember>('department_team_members', { column: 'department_id', value: departmentId });
 
   const sorted = [...data].sort((a, b) => {
     if (a.in_charge && !b.in_charge) return -1;
@@ -738,28 +608,37 @@ export default function DepartmentTeamSection({ departmentId }: DepartmentTeamSe
     return a.sort_order - b.sort_order;
   });
 
-const handleAdd = useCallback(async () => {
-  await supabase.from('department_team_members').insert({
-    department_id: departmentId,
-    name: '',
-    in_charge: false,
-    reports_to: '',
-    hours_per_day: 8,
-    days_per_week: 5,
-    main_skills: '',
-    tasks_love: '',
-    tasks_hate: '',
-    salary: 0,
-    salary_currency: 'USD',
-    bonus_structure: false,
-    bonus_details: '',
-    assigned_projects: '',
-    notes: '',
-    sort_order: data.length,
-    created_by: user?.id ?? null,
-  });
-  await refetch();
-}, [departmentId, data.length, user?.id, refetch]);
+  const handleAdd = useCallback(async () => {
+    const { data: inserted } = await supabase
+      .from('department_team_members')
+      .insert({
+        department_id: departmentId,
+        name: '',
+        in_charge: false,
+        reports_to: '',
+        hours_per_day: 8,
+        days_per_week: 5,
+        main_skills: '',
+        tasks_love: '',
+        tasks_hate: '',
+        salary: 0,
+        salary_currency: 'USD',
+        bonus_structure: false,
+        bonus_details: '',
+        assigned_projects: '',
+        notes: '',
+        sort_order: data.length,
+        created_by: user?.id ?? null,
+      })
+      .select()
+      .single();
+
+    if (inserted) {
+      setData(prev => [...prev, inserted]);
+    } else {
+      await refetch();
+    }
+  }, [departmentId, data.length, user?.id, setData, refetch]);
 
   const handleUpdate = useCallback(async (id: string, key: string, value: string | number | boolean) => {
     await supabase.from('department_team_members').update({ [key]: value }).eq('id', id);
@@ -779,8 +658,6 @@ const handleAdd = useCallback(async () => {
     );
   }
 
-  console.count('DepartmentTeamSection render');
-
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
@@ -790,10 +667,7 @@ const handleAdd = useCallback(async () => {
             {sorted.length} member{sorted.length !== 1 ? 's' : ''} — expand a card to see full details
           </p>
         </div>
-        <button
-          onClick={handleAdd}
-          className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#3b82f6] text-white text-sm font-medium rounded-lg hover:bg-[#2563eb] transition-colors"
-        >
+        <button onClick={handleAdd} className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#3b82f6] text-white text-sm font-medium rounded-lg hover:bg-[#2563eb] transition-colors">
           <Plus size={14} />
           Add Member
         </button>
@@ -803,10 +677,7 @@ const handleAdd = useCallback(async () => {
         <div className="text-center py-14 border-2 border-dashed border-gray-200 rounded-xl">
           <User size={32} className="mx-auto text-gray-200 mb-3" />
           <p className="text-gray-400 text-sm mb-4">No team members yet for this department.</p>
-          <button
-            onClick={handleAdd}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#3b82f6] text-white text-sm rounded-lg hover:bg-[#2563eb] transition-colors"
-          >
+          <button onClick={handleAdd} className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#3b82f6] text-white text-sm rounded-lg hover:bg-[#2563eb] transition-colors">
             <Plus size={14} />
             Add First Member
           </button>
@@ -814,12 +685,7 @@ const handleAdd = useCallback(async () => {
       ) : (
         <div className="space-y-3">
           {sorted.map(member => (
-            <MemberCard
-              key={member.id}
-              member={member}
-              onUpdate={handleUpdate}
-              onDelete={handleDelete}
-            />
+            <MemberCard key={member.id} member={member} onUpdate={handleUpdate} onDelete={handleDelete} />
           ))}
         </div>
       )}

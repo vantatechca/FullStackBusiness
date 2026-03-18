@@ -92,7 +92,7 @@ const columns: ColumnDef[] = [
 ];
 
 export default function RevenueSection({ departmentId }: { departmentId: string }) {
-  const { data, loading, refetch } = useRealtimeTable<Revenue>('revenue', {
+  const { data, loading, setData, refetch } = useRealtimeTable<Revenue>('revenue', {
     column: 'department_id',
     value: departmentId,
   });
@@ -102,17 +102,26 @@ export default function RevenueSection({ departmentId }: { departmentId: string 
   const totalUSD = data.reduce((sum, r) => sum + convertToUSD(Number(r.amount) || 0, r.currency, rates), 0);
 
   const handleAdd = useCallback(async () => {
-    await supabase.from('revenue').insert({
-      department_id: departmentId,
-      date: format(new Date(), 'yyyy-MM-dd'),
-      source: '',
-      amount: 0,
-      currency: 'USD',
-      notes: '',
-      created_by: user?.id,
-    });
-    await refetch();
-  }, [departmentId, user?.id, refetch]);
+    const { data: inserted } = await supabase
+      .from('revenue')
+      .insert({
+        department_id: departmentId,
+        date: format(new Date(), 'yyyy-MM-dd'),
+        source: '',
+        amount: 0,
+        currency: 'USD',
+        notes: '',
+        created_by: user?.id,
+      })
+      .select()
+      .single();
+
+    if (inserted) {
+      setData(prev => [...prev, inserted]);
+    } else {
+      await refetch();
+    }
+  }, [departmentId, user?.id, setData, refetch]);
 
   const handleUpdate = useCallback(async (id: string, key: string, value: string | number) => {
     await supabase.from('revenue').update({ [key]: value }).eq('id', id);

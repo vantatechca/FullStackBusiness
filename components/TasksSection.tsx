@@ -147,7 +147,6 @@
 
 
 
-
 'use client';
 
 import { useState, useCallback, useMemo } from 'react';
@@ -196,7 +195,7 @@ function SortButton({ field, active, dir, onClick }: { field: string; active: bo
 }
 
 export default function TasksSection({ departmentId }: { departmentId: string }) {
-  const { data, loading, refetch } = useRealtimeTable<Task>('tasks', {
+  const { data, loading, setData, refetch } = useRealtimeTable<Task>('tasks', {
     column: 'department_id',
     value: departmentId,
   });
@@ -238,19 +237,28 @@ export default function TasksSection({ departmentId }: { departmentId: string })
   }, [data, sortField, sortDir]);
 
   const handleAdd = useCallback(async () => {
-    await supabase.from('tasks').insert({
-      department_id: departmentId,
-      task: '',
-      recurrence: 'One-Time',
-      status: 'To Do',
-      assignee: '',
-      deadline: '',
-      priority: 'Medium',
-      notes: '',
-      created_by: user?.id,
-    });
-    await refetch();
-  }, [departmentId, user?.id, refetch]);
+    const { data: inserted } = await supabase
+      .from('tasks')
+      .insert({
+        department_id: departmentId,
+        task: '',
+        recurrence: 'One-Time',
+        status: 'To Do',
+        assignee: '',
+        deadline: '',
+        priority: 'Medium',
+        notes: '',
+        created_by: user?.id,
+      })
+      .select()
+      .single();
+
+    if (inserted) {
+      setData(prev => [...prev, inserted]);
+    } else {
+      await refetch();
+    }
+  }, [departmentId, user?.id, setData, refetch]);
 
   const handleUpdate = useCallback(async (id: string, key: string, value: string | number) => {
     await supabase.from('tasks').update({ [key]: value }).eq('id', id);

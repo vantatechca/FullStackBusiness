@@ -51,7 +51,6 @@
 // }
 
 
-
 'use client';
 
 import { useCallback } from 'react';
@@ -70,19 +69,28 @@ const columns: ColumnDef[] = [
 ];
 
 export default function GMBView() {
-  const { data, loading, refetch } = useRealtimeTable<GMBListing>('gmb_listings');
+  const { data, loading, setData, refetch } = useRealtimeTable<GMBListing>('gmb_listings');
 
   const handleAdd = useCallback(async () => {
-    await supabase.from('gmb_listings').insert({
-      name: '',
-      address: '',
-      status: 'Pending',
-      rating: 0,
-      reviews: 0,
-      notes: '',
-    });
-    await refetch();
-  }, [refetch]);
+    const { data: inserted } = await supabase
+      .from('gmb_listings')
+      .insert({
+        name: '',
+        address: '',
+        status: 'Pending',
+        rating: 0,
+        reviews: 0,
+        notes: '',
+      })
+      .select()
+      .single();
+
+    if (inserted) {
+      setData(prev => [...prev, inserted]);
+    } else {
+      await refetch();
+    }
+  }, [setData, refetch]);
 
   const handleUpdate = useCallback(async (id: string, key: string, value: string | number) => {
     await supabase.from('gmb_listings').update({ [key]: value }).eq('id', id);

@@ -130,7 +130,6 @@
 //   );
 // }
 
-
 'use client';
 
 import { useCallback } from 'react';
@@ -148,11 +147,7 @@ const columns: ColumnDef[] = [
   { key: 'status', label: 'Status', type: 'select', options: ['Active', 'On Leave', 'Inactive'], width: '110px' },
 ];
 
-async function syncMemberToDepartments(
-  name: string,
-  role: string,
-  departments: string
-) {
+async function syncMemberToDepartments(name: string, role: string, departments: string) {
   const deptIds = departments.split(',').map(d => d.trim()).filter(Boolean);
   for (const deptId of deptIds) {
     const { data: existing } = await supabase
@@ -186,22 +181,31 @@ async function syncMemberToDepartments(
 }
 
 export default function TeamView() {
-  const { data, loading, refetch } = useRealtimeTable<TeamMember>('team_members');
+  const { data, loading, setData, refetch } = useRealtimeTable<TeamMember>('team_members');
 
   const totalProfitPct = data.reduce((sum, m) => sum + (Number(m.profit_pct) || 0), 0);
   const isExact100 = Math.abs(totalProfitPct - 100) < 0.01;
 
   const handleAdd = useCallback(async () => {
-    await supabase.from('team_members').insert({
-      name: '',
-      role: '',
-      email: '',
-      departments: '',
-      profit_pct: 0,
-      status: 'Active',
-    });
-    await refetch();
-  }, [refetch]);
+    const { data: inserted } = await supabase
+      .from('team_members')
+      .insert({
+        name: '',
+        role: '',
+        email: '',
+        departments: '',
+        profit_pct: 0,
+        status: 'Active',
+      })
+      .select()
+      .single();
+
+    if (inserted) {
+      setData(prev => [...prev, inserted]);
+    } else {
+      await refetch();
+    }
+  }, [setData, refetch]);
 
   const handleUpdate = useCallback(async (id: string, key: string, value: string | number) => {
     await supabase.from('team_members').update({ [key]: value }).eq('id', id);
@@ -209,7 +213,6 @@ export default function TeamView() {
     const member = data.find(m => m.id === id);
     if (!member) return;
 
-    // When name changes, update existing department_team_members records
     if (key === 'name') {
       const oldName = member.name;
       const newName = String(value);
@@ -225,10 +228,9 @@ export default function TeamView() {
       }
     }
 
-    // When departments changes, auto-create records in department_team_members
     if (key === 'departments') {
       const memberName = member.name;
-      if (!memberName) return; // skip if name not set yet
+      if (!memberName) return;
       await syncMemberToDepartments(memberName, member.role || '', String(value));
     }
   }, [data]);

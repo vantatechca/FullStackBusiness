@@ -72,7 +72,6 @@
 // }
 
 
-
 'use client';
 
 import { useCallback } from 'react';
@@ -96,7 +95,7 @@ const columns: ColumnDef[] = [
 ];
 
 export default function ExpensesSection({ departmentId }: { departmentId: string }) {
-  const { data, loading, refetch } = useRealtimeTable<Expense>('expenses', {
+  const { data, loading, setData, refetch } = useRealtimeTable<Expense>('expenses', {
     column: 'department_id',
     value: departmentId,
   });
@@ -106,18 +105,27 @@ export default function ExpensesSection({ departmentId }: { departmentId: string
   const totalUSD = data.reduce((sum, e) => sum + convertToUSD(Number(e.amount) || 0, e.currency, rates), 0);
 
   const handleAdd = useCallback(async () => {
-    await supabase.from('expenses').insert({
-      department_id: departmentId,
-      date: format(new Date(), 'yyyy-MM-dd'),
-      description: '',
-      category: '',
-      amount: 0,
-      currency: 'USD',
-      paid_by: '',
-      created_by: user?.id,
-    });
-    await refetch();
-  }, [departmentId, user?.id, refetch]);
+    const { data: inserted } = await supabase
+      .from('expenses')
+      .insert({
+        department_id: departmentId,
+        date: format(new Date(), 'yyyy-MM-dd'),
+        description: '',
+        category: '',
+        amount: 0,
+        currency: 'USD',
+        paid_by: '',
+        created_by: user?.id,
+      })
+      .select()
+      .single();
+
+    if (inserted) {
+      setData(prev => [...prev, inserted]);
+    } else {
+      await refetch();
+    }
+  }, [departmentId, user?.id, setData, refetch]);
 
   const handleUpdate = useCallback(async (id: string, key: string, value: string | number) => {
     await supabase.from('expenses').update({ [key]: value }).eq('id', id);

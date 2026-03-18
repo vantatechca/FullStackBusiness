@@ -88,24 +88,33 @@ const columns: ColumnDef[] = [
 ];
 
 export default function InfluencersView() {
-  const { data, loading, refetch } = useRealtimeTable<Influencer>('influencers');
+  const { data, loading, setData, refetch } = useRealtimeTable<Influencer>('influencers');
   const { formatDisplay } = useCurrency();
 
   const totalRevenue = data.reduce((sum, i) => sum + (Number(i.revenue) || 0), 0);
 
   const handleAdd = useCallback(async () => {
-    await supabase.from('influencers').insert({
-      name: '',
-      platform: 'Instagram',
-      followers: '',
-      promo_code: '',
-      commission_pct: 0,
-      revenue: 0,
-      contact: '',
-      notes: '',
-    });
-    await refetch();
-  }, [refetch]);
+    const { data: inserted } = await supabase
+      .from('influencers')
+      .insert({
+        name: '',
+        platform: 'Instagram',
+        followers: '',
+        promo_code: '',
+        commission_pct: 0,
+        revenue: 0,
+        contact: '',
+        notes: '',
+      })
+      .select()
+      .single();
+
+    if (inserted) {
+      setData(prev => [...prev, inserted]);
+    } else {
+      await refetch();
+    }
+  }, [setData, refetch]);
 
   const handleUpdate = useCallback(async (id: string, key: string, value: string | number) => {
     await supabase.from('influencers').update({ [key]: value }).eq('id', id);
