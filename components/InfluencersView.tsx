@@ -120,9 +120,11 @@ export default function InfluencersView() {
     await supabase.from('influencers').update({ [key]: value }).eq('id', id);
   }, []);
 
-  const handleDelete = useCallback(async (id: string) => {
-    await supabase.from('influencers').delete().eq('id', id);
-  }, []);
+const handleDelete = useCallback(async (id: string) => {
+  await supabase.from('department_team_members').delete().eq('id', id);
+  setData(prev => prev.filter(row => row.id !== id));
+}, [setData]);
+
 
   return (
     <div>

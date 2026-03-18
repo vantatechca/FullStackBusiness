@@ -128,10 +128,11 @@ export default function RestockView() {
   const handleUpdate = useCallback(async (id: string, key: string, value: string | number) => {
     await supabase.from('suppliers').update({ [key]: value }).eq('id', id);
   }, []);
-
-  const handleDelete = useCallback(async (id: string) => {
-    await supabase.from('suppliers').delete().eq('id', id);
-  }, []);
+  
+const handleDelete = useCallback(async (id: string) => {
+  await supabase.from('department_team_members').delete().eq('id', id);
+  setData(prev => prev.filter(row => row.id !== id));
+}, [setData]);
 
   return (
     <div>

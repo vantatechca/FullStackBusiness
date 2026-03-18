@@ -644,9 +644,10 @@ export default function DepartmentTeamSection({ departmentId }: DepartmentTeamSe
     await supabase.from('department_team_members').update({ [key]: value }).eq('id', id);
   }, []);
 
-  const handleDelete = useCallback(async (id: string) => {
-    await supabase.from('department_team_members').delete().eq('id', id);
-  }, []);
+const handleDelete = useCallback(async (id: string) => {
+  await supabase.from('department_team_members').delete().eq('id', id);
+  setData(prev => prev.filter(row => row.id !== id));
+}, [setData]);
 
   if (loading) {
     return (

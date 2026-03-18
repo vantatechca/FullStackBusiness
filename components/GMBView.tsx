@@ -96,9 +96,10 @@ export default function GMBView() {
     await supabase.from('gmb_listings').update({ [key]: value }).eq('id', id);
   }, []);
 
-  const handleDelete = useCallback(async (id: string) => {
-    await supabase.from('gmb_listings').delete().eq('id', id);
-  }, []);
+const handleDelete = useCallback(async (id: string) => {
+  await supabase.from('department_team_members').delete().eq('id', id);
+  setData(prev => prev.filter(row => row.id !== id));
+}, [setData]);
 
   return (
     <SpreadsheetTable
