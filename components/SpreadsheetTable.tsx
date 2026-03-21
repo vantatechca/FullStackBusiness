@@ -153,8 +153,6 @@
 
 
 
-
-
 'use client';
 
 import { useState, useEffect, useRef, memo, useCallback } from 'react';
@@ -167,7 +165,7 @@ const CellInput = memo(function CellInput({
   onCommit,
 }: {
   value: string | number;
-  type: 'text' | 'number';
+  type: 'text' | 'number' | 'date';
   onCommit: (val: string | number) => void;
 }) {
   const [local, setLocal] = useState(String(value ?? ''));
@@ -178,6 +176,22 @@ const CellInput = memo(function CellInput({
       setLocal(String(value ?? ''));
     }
   }, [value]);
+
+  if (type === 'date') {
+    return (
+      <input
+        type="date"
+        value={local}
+        onChange={e => {
+          setLocal(e.target.value);
+          onCommit(e.target.value); // commit immediately on change for date pickers
+        }}
+        onFocus={() => { isFocused.current = true; }}
+        onBlur={() => { isFocused.current = false; }}
+        className="w-full px-2 py-1.5 text-sm border-0 bg-transparent rounded focus:ring-1 focus:ring-[#3b82f6] outline-none cursor-pointer"
+      />
+    );
+  }
 
   return (
     <input
@@ -200,7 +214,6 @@ const CellInput = memo(function CellInput({
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-// Stable wrapper so onCommit never changes reference between renders
 const StableCell = memo(function StableCell({
   rowId,
   colKey,
@@ -211,7 +224,7 @@ const StableCell = memo(function StableCell({
   rowId: string;
   colKey: string;
   value: string | number;
-  type: 'text' | 'number';
+  type: 'text' | 'number' | 'date';
   onUpdate: (id: string, key: string, value: string | number) => void;
 }) {
   const handleCommit = useCallback(
@@ -263,7 +276,7 @@ const TableRow = memo(function TableRow({
               rowId={row.id}
               colKey={col.key}
               value={row[col.key] ?? ''}
-              type={col.type === 'number' ? 'number' : 'text'}
+              type={col.type === 'number' ? 'number' : col.type === 'date' ? 'date' : 'text'}
               onUpdate={onUpdate}
             />
           )}
