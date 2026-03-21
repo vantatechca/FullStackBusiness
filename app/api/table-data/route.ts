@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { requireAuth, apiHandler } from '@/lib/api-auth';
 
+// Required — this route uses headers() via requireAuth, so it can't be statically rendered
+export const dynamic = 'force-dynamic';
+
 export const GET = apiHandler(async (req) => {
   await requireAuth();
 
@@ -28,7 +31,6 @@ export const GET = apiHandler(async (req) => {
   let rows: any[];
 
   if (filterColumn === 'department_id' && filterValue) {
-    // Route by table name — fixed: no longer defaults to revenue
     if (table === 'revenue') {
       rows = await sql`SELECT * FROM public.revenue WHERE department_id = ${filterValue} ORDER BY created_at ASC`;
     } else if (table === 'expenses') {
@@ -43,7 +45,6 @@ export const GET = apiHandler(async (req) => {
       rows = [];
     }
   } else {
-    // No filter — fetch all
     if (table === 'revenue') {
       rows = await sql`SELECT * FROM public.revenue ORDER BY created_at ASC`;
     } else if (table === 'expenses') {
