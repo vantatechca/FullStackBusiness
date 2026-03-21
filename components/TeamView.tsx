@@ -660,11 +660,6 @@
 
 
 
-
-
-
-
-
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
@@ -694,11 +689,12 @@ interface DeptOption {
   icon: string;
 }
 
-async function syncMemberToDepartments(name: string, role: string, departments: string) {
+async function syncMemberToDepartments(name: string, departments: string) {
   await fetch('/api/department-team-members/sync', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, role, departments }),
+    // role is no longer passed — in_charge is set independently per department
+    body: JSON.stringify({ name, departments }),
   });
 }
 
@@ -948,7 +944,7 @@ export default function TeamView() {
   }, [setData, refetch]);
 
   const handleUpdate = useCallback(async (id: string, key: string, value: string | number) => {
-    // Capture BEFORE optimistic update — prevents stale closure reading old data
+    // Capture member state BEFORE optimistic update
     const member = data.find(m => m.id === id);
 
     setData(prev => prev.map(m => m.id === id ? { ...m, [key]: value } : m));
@@ -959,6 +955,7 @@ export default function TeamView() {
       body: JSON.stringify({ [key]: value }),
     });
 
+    // Rename member across all their department rows when name changes
     if (key === 'name') {
       const oldName = member?.name;
       const newName = String(value);
@@ -971,24 +968,17 @@ export default function TeamView() {
       }
     }
 
+    // Sync department rows when department assignments change.
+    // in_charge always defaults to false on new rows — set independently per dept card.
     if (key === 'departments') {
       if (!member?.name) return;
-      await syncMemberToDepartments(member.name, member.role || '', String(value));
+      await syncMemberToDepartments(member.name, String(value));
       window.dispatchEvent(new CustomEvent('department-team-members-updated'));
     }
 
+    // Global role (Lead/Manager/Member) only updates team_members.role.
+    // It does NOT touch department_team_members.in_charge — fully independent.
     if (key === 'role') {
-      if (!member?.name || !member?.departments) return;
-      await fetch('/api/department-team-members/update-lead', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: member.name,
-          departments: member.departments,
-          in_charge: value === 'Lead',
-        }),
-      });
-      // Notify department Team tabs to refetch — this was missing before
       window.dispatchEvent(new CustomEvent('department-team-members-updated'));
     }
   }, [data, setData]);
