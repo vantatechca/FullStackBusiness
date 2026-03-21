@@ -434,35 +434,45 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getStandardDepartments, DEPARTMENT_ICONS } from '@/lib/departments';
+import { DEPARTMENT_ICONS } from '@/lib/departments';
 import { useCurrency } from '@/lib/currency-context';
 import { convertToUSD } from '@/lib/exchange-rates';
 import type { Revenue, Expense, Task } from '@/lib/types';
 import { TrendingUp, TrendingDown, CheckCircle2, BarChart3, ArrowUpRight } from 'lucide-react';
 
+interface Department {
+  id: string;
+  name: string;
+  icon: string;
+}
+
 export default function DashboardOverview() {
   const [revenue, setRevenue] = useState<Revenue[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const { formatDisplay, rates } = useCurrency();
 
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        const [revRes, expRes, taskRes] = await Promise.all([
+        const [revRes, expRes, taskRes, deptRes] = await Promise.all([
           fetch('/api/table-data?table=revenue'),
           fetch('/api/table-data?table=expenses'),
           fetch('/api/table-data?table=tasks'),
+          fetch('/api/table-data?table=departments'),
         ]);
-        const [revData, expData, taskData] = await Promise.all([
+        const [revData, expData, taskData, deptData] = await Promise.all([
           revRes.json(),
           expRes.json(),
           taskRes.json(),
+          deptRes.json(),
         ]);
         setRevenue(revData || []);
         setExpenses(expData || []);
         setTasks(taskData || []);
+        setDepartments(deptData || []);
       } catch (err) {
         console.error('Failed to fetch dashboard data:', err);
       } finally {
@@ -481,7 +491,6 @@ export default function DashboardOverview() {
   const inProgressTasks = tasks.filter(t => t.status === 'In Progress').length;
   const taskRate = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
 
-  const departments = getStandardDepartments();
   const deptData = departments.map(d => {
     const deptRev = revenue
       .filter(r => r.department_id === d.id)
@@ -614,7 +623,7 @@ export default function DashboardOverview() {
           <div className="w-2 h-8 bg-blue-400 rounded-full" />
           <div>
             <p className="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">Departments</p>
-            <p className="text-lg font-bold text-gray-900">{deptData.length}</p>
+            <p className="text-lg font-bold text-gray-900">{departments.length}</p>
           </div>
         </div>
       </div>
@@ -635,7 +644,7 @@ export default function DashboardOverview() {
         {deptData.length === 0 ? (
           <div className="py-16 text-center">
             <BarChart3 size={32} className="mx-auto text-gray-200 mb-3" />
-            <p className="text-sm text-gray-400">No data recorded yet across departments.</p>
+            <p className="text-sm text-gray-400">No departments found. Add departments to get started.</p>
           </div>
         ) : (
           <div className="divide-y divide-gray-50">
