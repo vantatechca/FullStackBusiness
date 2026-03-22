@@ -20,6 +20,20 @@ interface Department {
   sort_order: number;
 }
 
+// Cycles through a palette of soft tile colors per department index
+const TILE_COLORS = [
+  { bg: 'bg-blue-100',    icon: 'text-blue-600'    },
+  { bg: 'bg-violet-100',  icon: 'text-violet-600'  },
+  { bg: 'bg-emerald-100', icon: 'text-emerald-600' },
+  { bg: 'bg-amber-100',   icon: 'text-amber-600'   },
+  { bg: 'bg-rose-100',    icon: 'text-rose-600'    },
+  { bg: 'bg-sky-100',     icon: 'text-sky-600'     },
+  { bg: 'bg-teal-100',    icon: 'text-teal-600'    },
+  { bg: 'bg-orange-100',  icon: 'text-orange-600'  },
+  { bg: 'bg-pink-100',    icon: 'text-pink-600'    },
+  { bg: 'bg-indigo-100',  icon: 'text-indigo-600'  },
+];
+
 // ─── Smooth pointer-based drag hook ─────────────────────────────────────────
 function useSmoothDrag(
   items: Department[],
@@ -249,7 +263,7 @@ export default function Sidebar() {
 
   return (
     <>
-      <aside className={`flex flex-col bg-white border-r border-gray-200 h-screen sticky top-0 transition-all duration-200 ${collapsed ? 'w-[68px]' : 'w-[260px]'}`}>
+      <aside className={`flex flex-col bg-white border-r border-gray-200 h-screen sticky top-0 transition-all duration-200 ${collapsed ? 'w-[68px]' : 'w-[280px]'}`}>
 
         {/* Header */}
         <div className="flex items-center justify-between px-4 h-14 border-b border-gray-200 shrink-0">
@@ -283,7 +297,6 @@ export default function Sidebar() {
             </div>
           ) : (
             <>
-              {/* Drag list — overflow:visible so elevated shadow isn't clipped */}
               <div
                 ref={listRef}
                 className="relative"
@@ -298,12 +311,13 @@ export default function Sidebar() {
                   const isEditing = editingId === dept.id;
                   const menuOpen  = menuOpenId === dept.id;
                   const isDragged = draggingId === dept.id;
+                  const tile      = TILE_COLORS[index % TILE_COLORS.length];
 
                   return (
                     <div
                       key={dept.id}
                       data-drag-item
-                      className="group/item mb-0.5 rounded-lg"
+                      className="group/item mb-0.5 rounded-lg border-b border-gray-100 last:border-b-0"
                       style={getItemStyle(index, dept.id)}
                     >
                       {isEditing ? (
@@ -332,23 +346,33 @@ export default function Sidebar() {
                           {/* Grip handle */}
                           {dragEnabled && (
                             <div
-                              className={`pl-1.5 shrink-0 touch-none transition-opacity duration-150 cursor-grab active:cursor-grabbing ${
+                              className={`pl-1 py-2 shrink-0 touch-none transition-opacity duration-150 cursor-grab active:cursor-grabbing flex items-center ${
                                 isDragged ? 'opacity-100' : 'opacity-0 group-hover/item:opacity-100'
                               }`}
                               onPointerDown={e => onPointerDown(e, dept.id)}
                             >
-                              <GripVertical size={14} className={active ? 'text-white/50' : 'text-gray-300'} />
+                              <GripVertical size={13} className={active ? 'text-white/50' : 'text-gray-300'} />
                             </div>
                           )}
 
                           <Link
                             href={getHref(dept.id)}
-                            className={`flex items-center gap-2.5 px-2.5 py-2 text-sm flex-1 min-w-0 ${active ? 'text-white' : 'text-gray-600 hover:text-gray-900'}`}
+                            className={`flex items-center gap-2 px-2 py-1.5 text-sm flex-1 min-w-0 ${active ? 'text-white' : 'text-gray-700 hover:text-gray-900'}`}
                             title={collapsed ? dept.name : undefined}
                             onClick={e => { if (draggingId) e.preventDefault(); }}
                           >
-                            {Icon && <Icon size={18} className={`shrink-0 ${active ? 'text-white' : 'text-gray-400 group-hover/item:text-gray-600'}`} />}
-                            {!collapsed && <span className="truncate">{dept.name}</span>}
+                            {/* Colored tile icon */}
+                            <div className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${
+                              active ? 'bg-white/20' : tile.bg
+                            }`}>
+                              {Icon && <Icon size={13} className={active ? 'text-white' : tile.icon} />}
+                            </div>
+                            {/* Name wraps instead of truncating */}
+                            {!collapsed && (
+                              <span className="break-words whitespace-normal leading-snug text-[13px]">
+                                {dept.name}
+                              </span>
+                            )}
                           </Link>
 
                           {isAdmin && !collapsed && (
@@ -411,7 +435,11 @@ export default function Sidebar() {
                         title={collapsed ? adminDept.name : undefined}
                       >
                         {Icon && <Icon size={18} className={active ? 'text-white' : 'text-gray-400 group-hover:text-gray-600'} />}
-                        {!collapsed && <span className="truncate">{adminDept.name}</span>}
+                        {!collapsed && (
+                          <span className="break-words whitespace-normal leading-snug">
+                            {adminDept.name}
+                          </span>
+                        )}
                       </Link>
                     );
                   })()}

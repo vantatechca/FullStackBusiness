@@ -160,7 +160,9 @@ export default function DashboardOverview() {
                 <CheckCircle2 size={15} className="text-white" />
               </div>
             </div>
-            <p className="text-white text-2xl font-bold tracking-tight">{doneTasks}<span className="text-violet-200 text-lg font-medium"> / {totalTasks}</span></p>
+            <p className="text-white text-2xl font-bold tracking-tight">
+              {doneTasks}<span className="text-violet-200 text-lg font-medium"> / {totalTasks}</span>
+            </p>
             <div className="mt-2 flex items-center gap-2">
               <div className="flex-1 bg-white/20 rounded-full h-1.5">
                 <div className="bg-white h-full rounded-full transition-all duration-700" style={{ width: `${taskRate}%` }} />
@@ -204,8 +206,12 @@ export default function DashboardOverview() {
             <p className="text-xs text-gray-400 mt-0.5">Revenue vs expenses by department</p>
           </div>
           <div className="flex items-center gap-4 text-xs text-gray-400">
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-400 inline-block" />Revenue</span>
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-rose-400 inline-block" />Expenses</span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm bg-emerald-400 inline-block" />Revenue
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm bg-rose-400 inline-block" />Expenses
+            </span>
           </div>
         </div>
 
@@ -229,28 +235,46 @@ export default function DashboardOverview() {
                   className="px-6 py-4 hover:bg-gray-50/60 transition-colors"
                   style={{ animationDelay: `${i * 50}ms` }}
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2.5 w-44 shrink-0">
-                      <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+                  <div className="flex items-start gap-4">
+
+                    {/* Department icon + name — min width so long names wrap, never truncate */}
+                    <div className="flex items-start gap-2.5 shrink-0" style={{ width: '200px' }}>
+                      <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 mt-0.5">
                         {Icon && <Icon size={15} className="text-gray-500" />}
                       </div>
-                      <span className="text-sm font-medium text-gray-700 truncate">{d.name}</span>
+                      <span className="text-sm font-medium text-gray-700 break-words whitespace-normal leading-snug min-w-0 flex-1">
+                        {d.name}
+                      </span>
                     </div>
+
+                    {/* Bar charts */}
                     <div className="flex-1 space-y-1.5 min-w-0">
                       <div className="flex items-center gap-2">
                         <div className="flex-1 bg-gray-100 rounded-full h-3 overflow-hidden">
-                          <div className="bg-emerald-400 h-full rounded-full transition-all duration-700" style={{ width: `${revPct}%` }} />
+                          <div
+                            className="bg-emerald-400 h-full rounded-full transition-all duration-700"
+                            style={{ width: `${revPct}%` }}
+                          />
                         </div>
-                        <span className="text-xs font-semibold text-emerald-600 w-20 text-right tabular-nums">{formatDisplay(d.revenue)}</span>
+                        <span className="text-xs font-semibold text-emerald-600 w-20 text-right tabular-nums">
+                          {formatDisplay(d.revenue)}
+                        </span>
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="flex-1 bg-gray-100 rounded-full h-3 overflow-hidden">
-                          <div className="bg-rose-400 h-full rounded-full transition-all duration-700" style={{ width: `${expPct}%` }} />
+                          <div
+                            className="bg-rose-400 h-full rounded-full transition-all duration-700"
+                            style={{ width: `${expPct}%` }}
+                          />
                         </div>
-                        <span className="text-xs font-semibold text-rose-500 w-20 text-right tabular-nums">{formatDisplay(d.expenses)}</span>
+                        <span className="text-xs font-semibold text-rose-500 w-20 text-right tabular-nums">
+                          {formatDisplay(d.expenses)}
+                        </span>
                       </div>
                     </div>
-                    <div className="w-24 shrink-0 text-right">
+
+                    {/* Net profit badge */}
+                    <div className="w-24 shrink-0 text-right pt-0.5">
                       <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${
                         isProfit ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-600'
                       }`}>
@@ -258,14 +282,20 @@ export default function DashboardOverview() {
                         {formatDisplay(Math.abs(d.net))}
                       </div>
                     </div>
-                    <div className="w-24 shrink-0">
+
+                    {/* Task progress */}
+                    <div className="w-24 shrink-0 pt-1">
                       <div className="flex items-center justify-end gap-1.5">
                         <div className="w-12 bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                          <div className="bg-violet-400 h-full rounded-full transition-all duration-700" style={{ width: `${taskPct}%` }} />
+                          <div
+                            className="bg-violet-400 h-full rounded-full transition-all duration-700"
+                            style={{ width: `${taskPct}%` }}
+                          />
                         </div>
                         <span className="text-[11px] text-gray-400 tabular-nums">{d.done}/{d.tasks}</span>
                       </div>
                     </div>
+
                   </div>
                 </div>
               );

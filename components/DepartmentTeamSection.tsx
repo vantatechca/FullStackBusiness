@@ -2,7 +2,11 @@
 'use client';
 
 import { useState, useCallback, useRef, memo, useEffect } from 'react';
-import { Plus, Trash2, ChevronDown, ChevronUp, Crown, Star, ThumbsUp, ThumbsDown, Clock, Calendar, DollarSign, Briefcase, StickyNote, User } from 'lucide-react';
+import {
+  Plus, Trash2, ChevronDown, ChevronUp, Crown, Star,
+  ThumbsUp, ThumbsDown, Clock, Calendar, DollarSign,
+  Briefcase, StickyNote, User, Users,
+} from 'lucide-react';
 import { useRealtimeTable } from '@/lib/realtime';
 import { useAuth } from '@/lib/auth-context';
 import type { DepartmentTeamMember } from '@/lib/types';
@@ -23,15 +27,28 @@ interface TeamMemberOption {
   role: string;
 }
 
+const AVATAR_COLORS = [
+  'from-blue-400 to-blue-600',
+  'from-violet-400 to-violet-600',
+  'from-emerald-400 to-emerald-600',
+  'from-amber-400 to-amber-600',
+  'from-rose-400 to-rose-600',
+  'from-sky-400 to-sky-600',
+  'from-teal-400 to-teal-600',
+  'from-orange-400 to-orange-600',
+];
+
 function FieldLabel({ children }: { children: React.ReactNode }) {
-  return <span className="text-[11px] font-semibold text-[#64748b] uppercase tracking-wider">{children}</span>;
+  return (
+    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+      {children}
+    </span>
+  );
 }
 
-// ── Searchable Name Dropdown ──────────────────────────────────────────────────
+// ── Name Dropdown ─────────────────────────────────────────────────────────────
 function NameDropdown({
-  value,
-  options,
-  onChange,
+  value, options, onChange,
 }: {
   value: string;
   options: TeamMemberOption[];
@@ -58,50 +75,48 @@ function NameDropdown({
         onClick={() => setOpen(v => !v)}
         className="flex items-center gap-1.5 w-full text-left group"
       >
-        <span className={`text-base font-semibold truncate flex-1 ${isMismatch ? 'text-amber-600' : 'text-gray-900'}`}>
+        <span className={`text-sm font-semibold truncate flex-1 ${isMismatch ? 'text-amber-600' : 'text-gray-900'}`}>
           {value
             ? <>{value}{isMismatch && <span className="ml-1 text-xs">⚠️</span>}</>
-            : <span className="text-gray-300 font-normal">Select member…</span>
+            : <span className="text-gray-300 font-normal text-sm">Select member…</span>
           }
         </span>
         <ChevronDown
-          size={14}
+          size={13}
           className={`shrink-0 text-gray-300 group-hover:text-gray-500 transition-transform duration-150 ${open ? 'rotate-180' : ''}`}
         />
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full mt-1 z-50 w-56 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
-          <div className="max-h-52 overflow-y-auto py-1">
+        <div className="absolute left-0 top-full mt-1.5 z-50 w-60 bg-white border border-gray-200 rounded-2xl shadow-2xl overflow-hidden">
+          <div className="max-h-52 overflow-y-auto py-1.5 px-1.5">
             <button
               onClick={() => { onChange(''); setOpen(false); }}
-              className="w-full px-3 py-2 text-xs text-gray-400 hover:bg-gray-50 text-left italic transition-colors"
+              className="w-full px-3 py-2 text-xs text-gray-400 hover:bg-gray-50 text-left italic rounded-lg transition-colors"
             >
               — None —
             </button>
-
             {isMismatch && (
               <button
                 onClick={() => { onChange(value); setOpen(false); }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-sm bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-lg transition-colors"
               >
                 <span className="flex-1 text-left truncate">{value}</span>
                 <span className="text-[10px] shrink-0 opacity-70">⚠️ not in list</span>
               </button>
             )}
-
             {options.length === 0 ? (
               <p className="px-3 py-3 text-xs text-gray-400 text-center">No members yet</p>
             ) : (
-              options.map(opt => (
+              options.map((opt, i) => (
                 <button
                   key={opt.id}
                   onClick={() => { onChange(opt.name); setOpen(false); }}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors hover:bg-blue-50 ${
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors hover:bg-blue-50 ${
                     opt.name === value ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
                   }`}
                 >
-                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
+                  <div className={`w-6 h-6 rounded-full bg-gradient-to-br ${AVATAR_COLORS[i % AVATAR_COLORS.length]} flex items-center justify-center text-white text-[10px] font-bold shrink-0`}>
                     {(opt.name || '?')[0].toUpperCase()}
                   </div>
                   <div className="flex-1 text-left min-w-0">
@@ -171,15 +186,18 @@ function LocalTextarea({
 
 interface MemberCardProps {
   member: DepartmentTeamMember;
+  index: number;
   allProjects: Project[];
   teamOptions: TeamMemberOption[];
   onUpdate: (id: string, key: string, value: string | number | boolean) => void;
   onDelete: (id: string) => void;
 }
 
-const MemberCard = memo(function MemberCard({ member, allProjects, teamOptions, onUpdate, onDelete }: MemberCardProps) {
+const MemberCard = memo(function MemberCard({ member, index, allProjects, teamOptions, onUpdate, onDelete }: MemberCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const avatarColor = AVATAR_COLORS[index % AVATAR_COLORS.length];
 
   const selectedProjects = member.assigned_projects
     ? member.assigned_projects.split(',').map(s => s.trim()).filter(Boolean)
@@ -193,134 +211,255 @@ const MemberCard = memo(function MemberCard({ member, allProjects, teamOptions, 
   }
 
   return (
-    <div className={`bg-white rounded-xl border transition-all duration-200 ${member.in_charge ? 'border-amber-300 shadow-amber-50 shadow-md' : 'border-gray-200 shadow-sm'}`}>
+    <div className={`bg-white rounded-2xl border transition-all duration-200 overflow-hidden ${
+      member.in_charge
+        ? 'border-amber-200 shadow-md shadow-amber-50'
+        : 'border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300'
+    }`}>
+
+      {/* Lead accent bar */}
+      {member.in_charge && (
+        <div className="h-0.5 bg-gradient-to-r from-amber-300 via-amber-400 to-amber-300" />
+      )}
+
       <div className="p-4">
-        <div className="flex items-start gap-3">
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${member.in_charge ? 'bg-amber-100' : 'bg-blue-50'}`}>
-            {member.in_charge ? <Crown size={18} className="text-amber-500" /> : <User size={18} className="text-blue-400" />}
+        {/* Header */}
+        <div className="flex items-center gap-3">
+
+          {/* Avatar with crown badge */}
+          <div className="relative shrink-0">
+            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${avatarColor} flex items-center justify-center text-white text-sm font-bold shadow-sm`}>
+              {member.name ? member.name[0].toUpperCase() : <User size={16} />}
+            </div>
+            {member.in_charge && (
+              <div className="absolute -top-1 -right-1 w-4 h-4 bg-amber-400 rounded-full flex items-center justify-center shadow-sm">
+                <Crown size={9} className="text-white" />
+              </div>
+            )}
           </div>
+
+          {/* Name + meta */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2">
               <NameDropdown
                 value={member.name}
                 options={teamOptions}
                 onChange={val => onUpdate(member.id, 'name', val)}
               />
               {member.in_charge && (
-                <span className="flex-shrink-0 text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">IN CHARGE</span>
+                <span className="shrink-0 text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                  LEAD
+                </span>
               )}
             </div>
-            <div className="flex items-center gap-3 flex-wrap">
-              <label className="flex items-center gap-1.5 cursor-pointer select-none">
-                <div
-                  onClick={() => onUpdate(member.id, 'in_charge', !member.in_charge)}
-                  className={`relative w-8 h-4 rounded-full transition-colors cursor-pointer ${member.in_charge ? 'bg-amber-400' : 'bg-gray-200'}`}
-                >
-                  <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${member.in_charge ? 'translate-x-4' : 'translate-x-0.5'}`} />
+            <div className="flex items-center gap-3 mt-1 flex-wrap">
+              <button
+                onClick={() => onUpdate(member.id, 'in_charge', !member.in_charge)}
+                className={`flex items-center gap-1.5 text-[11px] font-medium transition-colors ${
+                  member.in_charge ? 'text-amber-600' : 'text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                <div className={`relative w-7 h-3.5 rounded-full transition-colors ${member.in_charge ? 'bg-amber-400' : 'bg-gray-200'}`}>
+                  <div className={`absolute top-0.5 w-2.5 h-2.5 bg-white rounded-full shadow transition-transform ${member.in_charge ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
                 </div>
-                <span className="text-[11px] text-gray-500">Lead</span>
-              </label>
+                Lead
+              </button>
               <div className="flex items-center gap-1">
                 <span className="text-[11px] text-gray-400">Reports to:</span>
                 <LocalInput
                   value={member.reports_to}
                   onChange={val => onUpdate(member.id, 'reports_to', val)}
                   placeholder="—"
-                  className="text-[12px] text-gray-600 bg-transparent border-0 outline-none focus:ring-0 p-0 w-24 placeholder-gray-300"
+                  className="text-[11px] text-gray-600 bg-transparent border-0 outline-none focus:ring-0 p-0 w-20 placeholder-gray-300"
                 />
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <button onClick={() => setExpanded(v => !v)} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
-              {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+
+          {/* Actions */}
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              onClick={() => setExpanded(v => !v)}
+              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            >
+              {expanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
             </button>
             {confirmDelete ? (
               <div className="flex items-center gap-1">
-                <button onClick={() => onDelete(member.id)} className="text-[11px] font-medium text-white bg-red-500 hover:bg-red-600 px-2 py-1 rounded transition-colors">Confirm</button>
-                <button onClick={() => setConfirmDelete(false)} className="text-[11px] font-medium text-gray-500 hover:text-gray-700 px-2 py-1 rounded transition-colors">Cancel</button>
+                <button onClick={() => onDelete(member.id)} className="text-[11px] font-medium text-white bg-red-500 hover:bg-red-600 px-2 py-1 rounded-lg transition-colors">
+                  Confirm
+                </button>
+                <button onClick={() => setConfirmDelete(false)} className="text-[11px] font-medium text-gray-500 hover:text-gray-700 px-2 py-1 rounded-lg transition-colors">
+                  Cancel
+                </button>
               </div>
             ) : (
               <button onClick={() => setConfirmDelete(true)} className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors">
-                <Trash2 size={15} />
+                <Trash2 size={14} />
               </button>
             )}
           </div>
         </div>
 
-        <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div>
-            <FieldLabel><Clock size={10} className="inline mr-1" />Hrs/Day</FieldLabel>
-            <LocalInput type="number" step="0.5" min="0" max="24" value={member.hours_per_day} onChange={val => onUpdate(member.id, 'hours_per_day', val)} className="mt-0.5 w-full text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all" />
-          </div>
-          <div>
-            <FieldLabel><Calendar size={10} className="inline mr-1" />Days/Week</FieldLabel>
-            <LocalInput type="number" step="0.5" min="0" max="7" value={member.days_per_week} onChange={val => onUpdate(member.id, 'days_per_week', val)} className="mt-0.5 w-full text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all" />
-          </div>
-          <div>
-            <FieldLabel><DollarSign size={10} className="inline mr-1" />Salary</FieldLabel>
-            <LocalInput type="number" step="any" min="0" value={member.salary} onChange={val => onUpdate(member.id, 'salary', val)} className="mt-0.5 w-full text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all" />
-          </div>
-          <div>
+        {/* Stats grid */}
+        <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {[
+            { label: 'Hrs/Day',   icon: Clock,      key: 'hours_per_day', value: member.hours_per_day, step: '0.5', max: '24' },
+            { label: 'Days/Week', icon: Calendar,   key: 'days_per_week', value: member.days_per_week, step: '0.5', max: '7'  },
+            { label: 'Salary',    icon: DollarSign, key: 'salary',        value: member.salary,         step: 'any', max: undefined },
+          ].map(field => {
+            const Icon = field.icon;
+            return (
+              <div key={field.key} className="bg-gray-50 rounded-xl px-3 py-2 border border-gray-100">
+                <div className="flex items-center gap-1 mb-1">
+                  <Icon size={10} className="text-gray-400" />
+                  <FieldLabel>{field.label}</FieldLabel>
+                </div>
+                <LocalInput
+                  type="number"
+                  step={field.step}
+                  min="0"
+                  max={field.max}
+                  value={field.value}
+                  onChange={val => onUpdate(member.id, field.key, val)}
+                  className="w-full text-sm font-semibold text-gray-800 bg-transparent border-0 outline-none focus:ring-0 p-0 placeholder-gray-300"
+                />
+              </div>
+            );
+          })}
+
+          <div className="bg-gray-50 rounded-xl px-3 py-2 border border-gray-100">
             <FieldLabel>Currency</FieldLabel>
-            <select value={member.salary_currency} onChange={e => onUpdate(member.id, 'salary_currency', e.target.value)} className="mt-0.5 w-full text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all">
+            <select
+              value={member.salary_currency}
+              onChange={e => onUpdate(member.id, 'salary_currency', e.target.value)}
+              className="mt-1 w-full text-sm font-semibold text-gray-800 bg-transparent border-0 outline-none focus:ring-0 p-0 cursor-pointer"
+            >
               {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
         </div>
 
+        {/* Skills */}
         <div className="mt-3">
-          <FieldLabel><Star size={10} className="inline mr-1" />Main Skills</FieldLabel>
-          <LocalInput value={member.main_skills} onChange={val => onUpdate(member.id, 'main_skills', val)} placeholder="e.g. SEO, Copywriting, Data Analysis" className="mt-0.5 w-full text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all" />
+          <div className="flex items-center gap-1 mb-1">
+            <Star size={10} className="text-gray-400" />
+            <FieldLabel>Main Skills</FieldLabel>
+          </div>
+          <LocalInput
+            value={member.main_skills}
+            onChange={val => onUpdate(member.id, 'main_skills', val)}
+            placeholder="e.g. SEO, Copywriting, Data Analysis"
+            className="w-full text-sm text-gray-700 bg-gray-50 border border-gray-100 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all placeholder-gray-300"
+          />
         </div>
       </div>
 
+      {/* Expanded details */}
       {expanded && (
-        <div className="px-4 pb-4 border-t border-gray-100 pt-4 space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <FieldLabel><ThumbsUp size={10} className="inline mr-1 text-green-500" />Tasks They Love</FieldLabel>
-              <LocalTextarea value={member.tasks_love} onChange={val => onUpdate(member.id, 'tasks_love', val)} placeholder="Describe tasks they enjoy..." rows={3} className="mt-0.5 w-full text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all resize-none" />
+        <div className="border-t border-gray-100 bg-gray-50/50 px-4 py-4 space-y-3">
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="bg-white rounded-xl border border-gray-100 p-3">
+              <div className="flex items-center gap-1.5 mb-2">
+                <div className="w-5 h-5 rounded-lg bg-green-50 flex items-center justify-center">
+                  <ThumbsUp size={10} className="text-green-500" />
+                </div>
+                <FieldLabel>Tasks They Love</FieldLabel>
+              </div>
+              <LocalTextarea
+                value={member.tasks_love}
+                onChange={val => onUpdate(member.id, 'tasks_love', val)}
+                placeholder="Describe tasks they enjoy..."
+                rows={3}
+                className="w-full text-sm text-gray-700 bg-transparent border-0 outline-none focus:ring-0 p-0 resize-none placeholder-gray-300"
+              />
             </div>
-            <div>
-              <FieldLabel><ThumbsDown size={10} className="inline mr-1 text-red-400" />Tasks They Dislike</FieldLabel>
-              <LocalTextarea value={member.tasks_hate} onChange={val => onUpdate(member.id, 'tasks_hate', val)} placeholder="Describe tasks they dislike..." rows={3} className="mt-0.5 w-full text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all resize-none" />
+            <div className="bg-white rounded-xl border border-gray-100 p-3">
+              <div className="flex items-center gap-1.5 mb-2">
+                <div className="w-5 h-5 rounded-lg bg-red-50 flex items-center justify-center">
+                  <ThumbsDown size={10} className="text-red-400" />
+                </div>
+                <FieldLabel>Tasks They Dislike</FieldLabel>
+              </div>
+              <LocalTextarea
+                value={member.tasks_hate}
+                onChange={val => onUpdate(member.id, 'tasks_hate', val)}
+                placeholder="Describe tasks they dislike..."
+                rows={3}
+                className="w-full text-sm text-gray-700 bg-transparent border-0 outline-none focus:ring-0 p-0 resize-none placeholder-gray-300"
+              />
             </div>
           </div>
 
-          <div>
-            <div className="flex items-center gap-3 mb-1">
+          <div className="bg-white rounded-xl border border-gray-100 p-3">
+            <div className="flex items-center gap-3 mb-2">
               <FieldLabel>Bonus Structure</FieldLabel>
-              <div onClick={() => onUpdate(member.id, 'bonus_structure', !member.bonus_structure)} className={`relative w-8 h-4 rounded-full transition-colors cursor-pointer ${member.bonus_structure ? 'bg-green-400' : 'bg-gray-200'}`}>
-                <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${member.bonus_structure ? 'translate-x-4' : 'translate-x-0.5'}`} />
-              </div>
-              {member.bonus_structure && <span className="text-[11px] text-green-600 font-medium">Eligible</span>}
+              <button
+                onClick={() => onUpdate(member.id, 'bonus_structure', !member.bonus_structure)}
+                className={`relative w-7 h-3.5 rounded-full transition-colors ${member.bonus_structure ? 'bg-green-400' : 'bg-gray-200'}`}
+              >
+                <div className={`absolute top-0.5 w-2.5 h-2.5 bg-white rounded-full shadow transition-transform ${member.bonus_structure ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
+              </button>
+              {member.bonus_structure && <span className="text-[11px] text-green-600 font-semibold">Eligible</span>}
             </div>
             {member.bonus_structure && (
-              <LocalTextarea value={member.bonus_details} onChange={val => onUpdate(member.id, 'bonus_details', val)} placeholder="Describe the bonus structure, conditions, amounts..." rows={2} className="w-full text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all resize-none" />
+              <LocalTextarea
+                value={member.bonus_details}
+                onChange={val => onUpdate(member.id, 'bonus_details', val)}
+                placeholder="Describe the bonus structure, conditions, amounts..."
+                rows={2}
+                className="w-full text-sm text-gray-700 bg-transparent border-0 outline-none focus:ring-0 p-0 resize-none placeholder-gray-300"
+              />
             )}
           </div>
 
-          <div>
-            <FieldLabel><Briefcase size={10} className="inline mr-1" />Assigned Projects</FieldLabel>
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
+          <div className="bg-white rounded-xl border border-gray-100 p-3">
+            <div className="flex items-center gap-1.5 mb-2">
+              <div className="w-5 h-5 rounded-lg bg-blue-50 flex items-center justify-center">
+                <Briefcase size={10} className="text-blue-500" />
+              </div>
+              <FieldLabel>Assigned Projects</FieldLabel>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
               {allProjects.map(project => {
                 const active = selectedProjects.includes(project.id);
                 return (
-                  <button key={project.id} onClick={() => toggleProject(project.id)} className={`text-[11px] font-medium px-2.5 py-1 rounded-full border transition-all ${active ? 'bg-blue-500 text-white border-blue-500' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-300 hover:text-blue-500'}`}>
+                  <button
+                    key={project.id}
+                    onClick={() => toggleProject(project.id)}
+                    className={`text-[11px] font-medium px-2.5 py-1 rounded-full border transition-all ${
+                      active
+                        ? 'bg-blue-500 text-white border-blue-500 shadow-sm'
+                        : 'bg-white text-gray-500 border-gray-200 hover:border-blue-300 hover:text-blue-500'
+                    }`}
+                  >
                     {project.name}
                   </button>
                 );
               })}
             </div>
             {selectedProjects.length > 0 && (
-              <p className="mt-1.5 text-[11px] text-gray-400">{selectedProjects.length} project{selectedProjects.length !== 1 ? 's' : ''} assigned</p>
+              <p className="mt-2 text-[11px] text-gray-400">
+                {selectedProjects.length} project{selectedProjects.length !== 1 ? 's' : ''} assigned
+              </p>
             )}
           </div>
 
-          <div>
-            <FieldLabel><StickyNote size={10} className="inline mr-1" />Notes</FieldLabel>
-            <LocalTextarea value={member.notes} onChange={val => onUpdate(member.id, 'notes', val)} placeholder="Additional notes about this person..." rows={2} className="mt-0.5 w-full text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all resize-none" />
+          <div className="bg-white rounded-xl border border-gray-100 p-3">
+            <div className="flex items-center gap-1.5 mb-2">
+              <div className="w-5 h-5 rounded-lg bg-gray-100 flex items-center justify-center">
+                <StickyNote size={10} className="text-gray-500" />
+              </div>
+              <FieldLabel>Notes</FieldLabel>
+            </div>
+            <LocalTextarea
+              value={member.notes}
+              onChange={val => onUpdate(member.id, 'notes', val)}
+              placeholder="Additional notes about this person..."
+              rows={2}
+              className="w-full text-sm text-gray-700 bg-transparent border-0 outline-none focus:ring-0 p-0 resize-none placeholder-gray-300"
+            />
           </div>
         </div>
       )}
@@ -338,31 +477,24 @@ export default function DepartmentTeamSection({ departmentId }: DepartmentTeamSe
   const [allProjects, setAllProjects] = useState<Project[]>([]);
   const [teamOptions, setTeamOptions] = useState<TeamMemberOption[]>([]);
 
-  // Fetch all departments for projects picker
   useEffect(() => {
     fetch('/api/departments')
       .then(res => res.ok ? res.json() : [])
       .then((depts: { id: string; name: string }[]) => {
         setAllProjects(
-          depts
-            .filter(d => d.id !== 'dashboard' && d.id !== 'admin')
+          depts.filter(d => d.id !== 'dashboard' && d.id !== 'admin')
             .map(d => ({ id: d.id, name: d.name }))
         );
       })
       .catch(() => setAllProjects([]));
   }, []);
 
-  // Fetch team members for name dropdown — refresh on team-members-updated
   useEffect(() => {
     const load = () => {
       fetch('/api/team-members')
         .then(res => res.ok ? res.json() : [])
         .then((members: TeamMemberOption[]) => {
-          setTeamOptions(
-            members
-              .filter(m => m.name)
-              .sort((a, b) => a.name.localeCompare(b.name))
-          );
+          setTeamOptions(members.filter(m => m.name).sort((a, b) => a.name.localeCompare(b.name)));
         })
         .catch(() => setTeamOptions([]));
     };
@@ -371,7 +503,6 @@ export default function DepartmentTeamSection({ departmentId }: DepartmentTeamSe
     return () => window.removeEventListener('team-members-updated', load);
   }, []);
 
-  // Listen for sync events from TeamView
   useEffect(() => {
     const handler = () => refetch();
     window.addEventListener('department-team-members-updated', handler);
@@ -385,51 +516,51 @@ export default function DepartmentTeamSection({ departmentId }: DepartmentTeamSe
   });
 
   const handleAdd = useCallback(async () => {
+    const tempId = `temp-${Date.now()}`;
+    const optimistic = {
+      id: tempId, department_id: departmentId, name: '', in_charge: false,
+      reports_to: '', hours_per_day: 8, days_per_week: 5, main_skills: '',
+      tasks_love: '', tasks_hate: '', salary: 0, salary_currency: 'USD',
+      bonus_structure: false, bonus_details: '', assigned_projects: '',
+      notes: '', sort_order: data.length, created_by: profile?.id ?? null,
+    } as DepartmentTeamMember;
+
+    setData(prev => [...prev, optimistic]);
+
     const res = await fetch('/api/department-team-members', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        department_id: departmentId,
-        name: '',
-        in_charge: false,
-        reports_to: '',
-        hours_per_day: 8,
-        days_per_week: 5,
-        main_skills: '',
-        tasks_love: '',
-        tasks_hate: '',
-        salary: 0,
-        salary_currency: 'USD',
-        bonus_structure: false,
-        bonus_details: '',
-        assigned_projects: '',
-        notes: '',
-        sort_order: data.length,
-        created_by: profile?.id ?? null,
+        department_id: departmentId, name: '', in_charge: false, reports_to: '',
+        hours_per_day: 8, days_per_week: 5, main_skills: '', tasks_love: '',
+        tasks_hate: '', salary: 0, salary_currency: 'USD', bonus_structure: false,
+        bonus_details: '', assigned_projects: '', notes: '',
+        sort_order: data.length, created_by: profile?.id ?? null,
       }),
     });
 
     if (res.ok) {
       const inserted = await res.json();
-      setData(prev => [...prev, inserted]);
+      setData(prev => prev.map(row => row.id === tempId ? inserted : row));
     } else {
+      setData(prev => prev.filter(row => row.id !== tempId));
       await refetch();
     }
   }, [departmentId, data.length, profile?.id, setData, refetch]);
 
-  const handleUpdate = useCallback(async (id: string, key: string, value: string | number | boolean) => {
-    await fetch(`/api/department-team-members/${id}`, {
+  const handleUpdate = useCallback((id: string, key: string, value: string | number | boolean) => {
+    if (id.startsWith('temp-')) return;
+    setData(prev => prev.map(row => row.id === id ? { ...row, [key]: value } : row));
+    fetch(`/api/department-team-members/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ [key]: value }),
-    });
-    setData(prev => prev.map(row => row.id === id ? { ...row, [key]: value } : row));
-  }, [setData]);
+    }).catch(() => refetch());
+  }, [setData, refetch]);
 
   const handleDelete = useCallback(async (id: string) => {
     const member = data.find(m => m.id === id);
     setData(prev => prev.filter(row => row.id !== id));
-
     await fetch(`/api/department-team-members/${id}`, { method: 'DELETE' });
 
     if (member?.name) {
@@ -438,17 +569,13 @@ export default function DepartmentTeamSection({ departmentId }: DepartmentTeamSe
         const teamMember = await res.json();
         if (teamMember) {
           const updatedDepts = (teamMember.departments || '')
-            .split(',')
-            .map((d: string) => d.trim())
-            .filter((d: string) => d && d !== departmentId)
-            .join(',');
-
+            .split(',').map((d: string) => d.trim())
+            .filter((d: string) => d && d !== departmentId).join(',');
           await fetch(`/api/team-members/${teamMember.id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ departments: updatedDepts }),
           });
-
           window.dispatchEvent(new CustomEvent('team-members-updated'));
         }
       }
@@ -459,7 +586,7 @@ export default function DepartmentTeamSection({ departmentId }: DepartmentTeamSe
     return (
       <div className="space-y-3">
         {[...Array(2)].map((_, i) => (
-          <div key={i} className="h-32 bg-gray-100 rounded-xl animate-pulse" />
+          <div key={i} className="h-32 bg-gray-100 rounded-2xl animate-pulse" />
         ))}
       </div>
     );
@@ -468,33 +595,48 @@ export default function DepartmentTeamSection({ departmentId }: DepartmentTeamSe
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="text-sm font-semibold text-gray-700">Team for this department</h3>
-          <p className="text-[12px] text-gray-400 mt-0.5">
-            {sorted.length} member{sorted.length !== 1 ? 's' : ''} — expand a card to see full details
-          </p>
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-blue-50 flex items-center justify-center">
+            <Users size={15} className="text-blue-500" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-gray-800">Department Team</h3>
+            <p className="text-[11px] text-gray-400">
+              {sorted.length} member{sorted.length !== 1 ? 's' : ''} · expand to see details
+            </p>
+          </div>
         </div>
-        <button onClick={handleAdd} className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#3b82f6] text-white text-sm font-medium rounded-lg hover:bg-[#2563eb] transition-colors">
-          <Plus size={14} />
+        <button
+          onClick={handleAdd}
+          className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#3b82f6] text-white text-xs font-semibold rounded-xl hover:bg-[#2563eb] transition-colors shadow-sm"
+        >
+          <Plus size={13} />
           Add Member
         </button>
       </div>
 
       {sorted.length === 0 ? (
-        <div className="text-center py-14 border-2 border-dashed border-gray-200 rounded-xl">
-          <User size={32} className="mx-auto text-gray-200 mb-3" />
-          <p className="text-gray-400 text-sm mb-4">No team members yet for this department.</p>
-          <button onClick={handleAdd} className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#3b82f6] text-white text-sm rounded-lg hover:bg-[#2563eb] transition-colors">
+        <div className="text-center py-14 border-2 border-dashed border-gray-200 rounded-2xl bg-gray-50/50">
+          <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
+            <Users size={22} className="text-gray-300" />
+          </div>
+          <p className="text-gray-400 text-sm font-medium mb-1">No team members yet</p>
+          <p className="text-gray-300 text-xs mb-4">Add your first member to this department</p>
+          <button
+            onClick={handleAdd}
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#3b82f6] text-white text-sm font-medium rounded-xl hover:bg-[#2563eb] transition-colors"
+          >
             <Plus size={14} />
             Add First Member
           </button>
         </div>
       ) : (
         <div className="space-y-3">
-          {sorted.map(member => (
+          {sorted.map((member, index) => (
             <MemberCard
               key={member.id}
               member={member}
+              index={index}
               allProjects={allProjects}
               teamOptions={teamOptions}
               onUpdate={handleUpdate}

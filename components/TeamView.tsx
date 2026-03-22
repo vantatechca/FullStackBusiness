@@ -1,9 +1,8 @@
 
-
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { Check, X, Plus, Trash2, UserCircle, Building2 } from 'lucide-react';
+import { Check, X, Plus, Trash2, UserCircle, Building2, Search, Users, Star, Activity } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useRealtimeTable } from '@/lib/realtime';
 import { DEPARTMENT_ICONS } from '@/lib/departments';
@@ -11,17 +10,31 @@ import type { TeamMember } from '@/lib/types';
 
 const ROLE_OPTIONS = ['Lead', 'Manager', 'Member'];
 
-const ROLE_STYLES: Record<string, string> = {
-  Lead: 'bg-amber-50 text-amber-700 border-amber-200',
-  Manager: 'bg-blue-50 text-blue-700 border-blue-200',
-  Member: 'bg-gray-50 text-gray-600 border-gray-200',
+const ROLE_CONFIG: Record<string, { style: string; dot: string }> = {
+  Lead:    { style: 'bg-amber-50 text-amber-700 border-amber-200',   dot: 'bg-amber-400' },
+  Manager: { style: 'bg-blue-50 text-blue-700 border-blue-200',      dot: 'bg-blue-400' },
+  Member:  { style: 'bg-gray-50 text-gray-600 border-gray-200',      dot: 'bg-gray-400' },
 };
 
-const STATUS_STYLES: Record<string, string> = {
-  Active: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  'On Leave': 'bg-amber-50 text-amber-700 border-amber-200',
-  Inactive: 'bg-red-50 text-red-600 border-red-200',
+const STATUS_CONFIG: Record<string, { style: string; dot: string }> = {
+  Active:    { style: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-400' },
+  'On Leave':{ style: 'bg-amber-50 text-amber-700 border-amber-200',       dot: 'bg-amber-400' },
+  Inactive:  { style: 'bg-red-50 text-red-600 border-red-200',             dot: 'bg-red-400' },
 };
+
+
+
+// Soft avatar colors cycling by index
+const AVATAR_COLORS = [
+  'from-blue-400 to-blue-600',
+  'from-violet-400 to-violet-600',
+  'from-emerald-400 to-emerald-600',
+  'from-amber-400 to-amber-600',
+  'from-rose-400 to-rose-600',
+  'from-sky-400 to-sky-600',
+  'from-teal-400 to-teal-600',
+  'from-orange-400 to-orange-600',
+];
 
 interface DeptOption {
   id: string;
@@ -33,7 +46,6 @@ async function syncMemberToDepartments(name: string, departments: string) {
   await fetch('/api/department-team-members/sync', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    // role is no longer passed — in_charge is set independently per department
     body: JSON.stringify({ name, departments }),
   });
 }
@@ -175,7 +187,7 @@ function DeptCell({
     <>
       <button
         onClick={() => setModalOpen(true)}
-        className="w-full flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-transparent hover:border-gray-200 hover:bg-gray-50 transition-all text-left min-h-[36px]"
+        className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg border border-transparent hover:border-gray-200 hover:bg-gray-50 transition-all text-left min-h-[36px]"
       >
         {selected.length === 0 ? (
           <span className="text-gray-300 text-xs italic flex items-center gap-1">
@@ -227,7 +239,7 @@ function InlineInput({
       defaultValue={String(value ?? '')}
       placeholder={placeholder}
       onBlur={e => onCommit(type === 'number' ? parseFloat(e.target.value) || 0 : e.target.value)}
-      className="w-full px-2.5 py-1.5 text-sm bg-transparent border border-transparent rounded-lg hover:border-gray-200 focus:border-blue-300 focus:ring-2 focus:ring-blue-50 outline-none transition-all placeholder-gray-300"
+      className="w-full px-2 py-1.5 text-sm bg-transparent border border-transparent rounded-lg hover:border-gray-200 focus:border-blue-300 focus:ring-2 focus:ring-blue-50 outline-none transition-all placeholder-gray-300"
     />
   );
 }
@@ -266,10 +278,18 @@ export default function TeamView() {
       })
     : data;
 
-  const activeCount = data.filter(m => m.status === 'Active').length;
-  const leadCount = data.filter(m => m.role === 'Lead').length;
+  const activeCount   = data.filter(m => m.status === 'Active').length;
+  const leadCount     = data.filter(m => m.role === 'Lead').length;
+  const onLeaveCount  = data.filter(m => m.status === 'On Leave').length;
 
   const handleAdd = useCallback(async () => {
+    const tempId = `temp-${Date.now()}`;
+    const optimistic = {
+      id: tempId, name: '', role: 'Member', email: '',
+      departments: '', profit_pct: 0, status: 'Active',
+    } as TeamMember;
+    setData(prev => [...prev, optimistic]);
+
     const res = await fetch('/api/team-members', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -277,16 +297,15 @@ export default function TeamView() {
     });
     if (res.ok) {
       const inserted = await res.json();
-      setData(prev => [...prev, inserted]);
+      setData(prev => prev.map(m => m.id === tempId ? inserted : m));
     } else {
+      setData(prev => prev.filter(m => m.id !== tempId));
       await refetch();
     }
   }, [setData, refetch]);
 
   const handleUpdate = useCallback(async (id: string, key: string, value: string | number) => {
-    // Capture member state BEFORE optimistic update
     const member = data.find(m => m.id === id);
-
     setData(prev => prev.map(m => m.id === id ? { ...m, [key]: value } : m));
 
     await fetch(`/api/team-members/${id}`, {
@@ -295,7 +314,6 @@ export default function TeamView() {
       body: JSON.stringify({ [key]: value }),
     });
 
-    // Rename member across all their department rows when name changes
     if (key === 'name') {
       const oldName = member?.name;
       const newName = String(value);
@@ -308,16 +326,12 @@ export default function TeamView() {
       }
     }
 
-    // Sync department rows when department assignments change.
-    // in_charge always defaults to false on new rows — set independently per dept card.
     if (key === 'departments') {
       if (!member?.name) return;
       await syncMemberToDepartments(member.name, String(value));
       window.dispatchEvent(new CustomEvent('department-team-members-updated'));
     }
 
-    // Global role (Lead/Manager/Member) only updates team_members.role.
-    // It does NOT touch department_team_members.in_charge — fully independent.
     if (key === 'role') {
       window.dispatchEvent(new CustomEvent('department-team-members-updated'));
     }
@@ -325,14 +339,11 @@ export default function TeamView() {
 
   const handleDelete = useCallback(async (id: string) => {
     const member = data.find(m => m.id === id);
-
     setData(prev => prev.filter(row => row.id !== id));
-
     await fetch(`/api/team-members/${id}`, { method: 'DELETE' });
 
     if (member?.name && member?.departments) {
       const deptIds = member.departments.split(',').map(d => d.trim()).filter(Boolean);
-
       await Promise.all(
         deptIds.map(async deptId => {
           const res = await fetch(
@@ -340,87 +351,106 @@ export default function TeamView() {
           );
           if (!res.ok) return;
           const row = await res.json();
-          if (row?.id) {
-            await fetch(`/api/department-team-members/${row.id}`, { method: 'DELETE' });
-          }
+          if (row?.id) await fetch(`/api/department-team-members/${row.id}`, { method: 'DELETE' });
         })
       );
-
       window.dispatchEvent(new CustomEvent('department-team-members-updated'));
     }
   }, [data, setData]);
 
   if (loading) {
     return (
-      <div className="space-y-2">
+      <div className="space-y-3">
         {[...Array(4)].map((_, i) => (
-          <div key={i} className="h-14 bg-gray-100 rounded-xl animate-pulse" />
+          <div key={i} className="h-16 bg-gray-100 rounded-2xl animate-pulse" />
         ))}
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg">
-            <span className="text-xs font-medium text-gray-500">Total</span>
-            <span className="text-sm font-bold text-gray-900">{data.length}</span>
-          </div>
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-100 rounded-lg">
-            <span className="text-xs font-medium text-emerald-600">Active</span>
-            <span className="text-sm font-bold text-emerald-700">{activeCount}</span>
-          </div>
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-100 rounded-lg">
-            <span className="text-xs font-medium text-amber-600">Leads</span>
-            <span className="text-sm font-bold text-amber-700">{leadCount}</span>
-          </div>
-        </div>
+    <div className="space-y-5">
 
+      {/* ── Stats row ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: 'Total Members', value: data.length,   icon: Users,    color: 'text-blue-600',    bg: 'bg-blue-50',    border: 'border-blue-100' },
+          { label: 'Active',        value: activeCount,   icon: Activity, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100' },
+          { label: 'Leads',         value: leadCount,     icon: Star,     color: 'text-amber-600',   bg: 'bg-amber-50',   border: 'border-amber-100' },
+          { label: 'On Leave',      value: onLeaveCount,  icon: UserCircle, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-100' },
+        ].map(stat => {
+          const Icon = stat.icon;
+          return (
+            <div key={stat.label} className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${stat.border} ${stat.bg}`}>
+              <div className={`w-8 h-8 rounded-lg bg-white/70 flex items-center justify-center shrink-0 shadow-sm`}>
+                <Icon size={15} className={stat.color} />
+              </div>
+              <div>
+                <p className="text-xl font-bold text-gray-900 leading-none">{stat.value}</p>
+                <p className={`text-[11px] font-medium mt-0.5 ${stat.color}`}>{stat.label}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ── Toolbar ── */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="relative">
-          <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-          </svg>
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
           <input
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search members…"
-            className="pl-8 pr-8 py-1.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all w-52"
+            className="pl-9 pr-8 py-2 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all w-56 shadow-sm"
           />
           {search && (
-            <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+            <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
               <X size={13} />
             </button>
           )}
         </div>
+
+        <button
+          onClick={handleAdd}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-[#3b82f6] text-white text-sm font-medium rounded-xl hover:bg-[#2563eb] transition-colors shadow-sm"
+        >
+          <Plus size={15} />
+          Add Member
+        </button>
       </div>
 
-      <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+      {/* ── Table ── */}
+      <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-gray-50 border-b border-gray-200">
-              <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-4 py-3" style={{ minWidth: '180px' }}>Name</th>
-              <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-4 py-3" style={{ minWidth: '120px' }}>Role</th>
-              <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-4 py-3" style={{ minWidth: '200px' }}>Email</th>
-              <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-4 py-3" style={{ minWidth: '120px' }}>Status</th>
-              <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-4 py-3" style={{ minWidth: '200px' }}>Departments</th>
-              <th className="w-12 bg-gray-50" />
+            <tr className="border-b border-gray-100 bg-gray-50/80">
+              <th className="text-left text-[11px] font-bold text-gray-400 uppercase tracking-wider px-4 py-3" style={{ minWidth: '200px' }}>Member</th>
+              <th className="text-left text-[11px] font-bold text-gray-400 uppercase tracking-wider px-3 py-3" style={{ minWidth: '120px' }}>Role</th>
+              <th className="text-left text-[11px] font-bold text-gray-400 uppercase tracking-wider px-3 py-3" style={{ minWidth: '200px' }}>Email</th>
+              <th className="text-left text-[11px] font-bold text-gray-400 uppercase tracking-wider px-3 py-3" style={{ minWidth: '120px' }}>Status</th>
+              <th className="text-left text-[11px] font-bold text-gray-400 uppercase tracking-wider px-3 py-3" style={{ minWidth: '220px' }}>Departments</th>
+              <th className="w-10" />
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={6} className="py-16 text-center">
-                  <UserCircle size={32} className="mx-auto text-gray-200 mb-3" />
-                  <p className="text-sm text-gray-400 mb-1">
-                    {search ? `No members matching "${search}"` : 'No team members yet.'}
+                <td colSpan={6} className="py-20 text-center">
+                  <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
+                    <UserCircle size={28} className="text-gray-300" />
+                  </div>
+                  <p className="text-sm font-medium text-gray-400 mb-1">
+                    {search ? `No members matching "${search}"` : 'No team members yet'}
+                  </p>
+                  <p className="text-xs text-gray-300 mb-5">
+                    {search ? 'Try a different search term' : 'Add your first team member to get started'}
                   </p>
                   {!search && (
                     <button
                       onClick={handleAdd}
-                      className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 bg-[#3b82f6] text-white text-sm font-medium rounded-lg hover:bg-[#2563eb] transition-colors"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#3b82f6] text-white text-sm font-medium rounded-xl hover:bg-[#2563eb] transition-colors"
                     >
                       <Plus size={14} />
                       Add First Member
@@ -429,68 +459,96 @@ export default function TeamView() {
                 </td>
               </tr>
             ) : (
-              filtered.map((row, idx) => (
-                <tr key={row.id} className={`group transition-colors hover:bg-blue-50/30 ${idx % 2 === 1 ? 'bg-gray-50/40' : 'bg-white'}`}>
-                  <td className="px-2 py-1">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                        {String(row.name || '?')[0].toUpperCase()}
+              filtered.map((row, idx) => {
+                const roleConfig   = ROLE_CONFIG[row.role]   ?? ROLE_CONFIG.Member;
+                const statusConfig = STATUS_CONFIG[row.status] ?? STATUS_CONFIG.Active;
+                const avatarColor  = AVATAR_COLORS[idx % AVATAR_COLORS.length];
+
+                return (
+                  <tr
+                    key={row.id}
+                    className={`group border-b border-gray-50 last:border-b-0 transition-colors hover:bg-blue-50/20 ${
+                      idx % 2 === 1 ? 'bg-gray-50/30' : 'bg-white'
+                    }`}
+                  >
+                    {/* Member name + avatar */}
+                    <td className="px-3 py-2">
+                      <div className="flex items-center gap-2.5">
+                        <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${avatarColor} flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-sm`}>
+                          {String(row.name || '?')[0].toUpperCase()}
+                        </div>
+                        <InlineInput
+                          value={row.name}
+                          onCommit={val => handleUpdate(row.id, 'name', val)}
+                          placeholder="Full name"
+                        />
                       </div>
-                      <InlineInput value={row.name} onCommit={val => handleUpdate(row.id, 'name', val)} placeholder="Full name" />
-                    </div>
-                  </td>
-                  <td className="px-2 py-1">
-                    <select
-                      value={String(row.role ?? 'Member')}
-                      onChange={e => handleUpdate(row.id, 'role', e.target.value)}
-                      className={`px-2.5 py-1 text-xs font-semibold rounded-full border cursor-pointer outline-none focus:ring-2 focus:ring-blue-100 transition-all ${ROLE_STYLES[row.role] || ROLE_STYLES.Member}`}
-                    >
-                      {ROLE_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                    </select>
-                  </td>
-                  <td className="px-2 py-1">
-                    <InlineInput value={row.email} onCommit={val => handleUpdate(row.id, 'email', val)} placeholder="email@example.com" />
-                  </td>
-                  <td className="px-2 py-1">
-                    <select
-                      value={String(row.status ?? 'Active')}
-                      onChange={e => handleUpdate(row.id, 'status', e.target.value)}
-                      className={`px-2.5 py-1 text-xs font-semibold rounded-full border cursor-pointer outline-none focus:ring-2 focus:ring-blue-100 transition-all ${STATUS_STYLES[row.status] || STATUS_STYLES.Active}`}
-                    >
-                      {['Active', 'On Leave', 'Inactive'].map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                    </select>
-                  </td>
-                  <td className="px-2 py-1">
-                    <DeptCell
-                      memberId={row.id}
-                      memberName={row.name}
-                      value={row.departments || ''}
-                      deptOptions={deptOptions}
-                      onUpdate={handleUpdate}
-                    />
-                  </td>
-                  <td className="px-2 py-1 text-center">
-                    <button
-                      onClick={() => handleDelete(row.id)}
-                      className="p-1.5 rounded-lg text-gray-200 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </td>
-                </tr>
-              ))
+                    </td>
+
+                    {/* Role */}
+                    <td className="px-3 py-2">
+                      <div className="relative inline-flex items-center">
+                        <span className={`absolute left-2 w-1.5 h-1.5 rounded-full ${roleConfig.dot}`} />
+                        <select
+                          value={String(row.role ?? 'Member')}
+                          onChange={e => handleUpdate(row.id, 'role', e.target.value)}
+                          className={`pl-5 pr-2.5 py-1 text-xs font-semibold rounded-full border cursor-pointer outline-none focus:ring-2 focus:ring-blue-100 transition-all appearance-none ${roleConfig.style}`}
+                        >
+                          {ROLE_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                        </select>
+                      </div>
+                    </td>
+
+                    {/* Email */}
+                    <td className="px-3 py-2">
+                      <InlineInput
+                        value={row.email}
+                        onCommit={val => handleUpdate(row.id, 'email', val)}
+                        placeholder="email@example.com"
+                      />
+                    </td>
+
+                    {/* Status */}
+                    <td className="px-3 py-2">
+                      <div className="relative inline-flex items-center">
+                        <span className={`absolute left-2 w-1.5 h-1.5 rounded-full ${statusConfig.dot}`} />
+                        <select
+                          value={String(row.status ?? 'Active')}
+                          onChange={e => handleUpdate(row.id, 'status', e.target.value)}
+                          className={`pl-5 pr-2.5 py-1 text-xs font-semibold rounded-full border cursor-pointer outline-none focus:ring-2 focus:ring-blue-100 transition-all appearance-none ${statusConfig.style}`}
+                        >
+                          {['Active', 'On Leave', 'Inactive'].map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                        </select>
+                      </div>
+                    </td>
+
+                    {/* Departments */}
+                    <td className="px-3 py-2">
+                      <DeptCell
+                        memberId={row.id}
+                        memberName={row.name}
+                        value={row.departments || ''}
+                        deptOptions={deptOptions}
+                        onUpdate={handleUpdate}
+                      />
+                    </td>
+
+                    {/* Delete */}
+                    <td className="px-2 py-2 text-center">
+                      <button
+                        onClick={() => handleDelete(row.id)}
+                        className="p-1.5 rounded-lg text-gray-200 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
       </div>
-
-      <button
-        onClick={handleAdd}
-        className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#3b82f6] text-white text-sm font-medium rounded-lg hover:bg-[#2563eb] transition-colors shadow-sm"
-      >
-        <Plus size={14} />
-        Add Team Member
-      </button>
     </div>
   );
 }
