@@ -268,9 +268,6 @@ function avatarColor(name: string) {
   for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
   return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
 }
-function initials(name: string) {
-  return name.split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
-}
 
 // ── Multi-select cell ─────────────────────────────────────────────────────────
 const MultiSelectCell = memo(function MultiSelectCell({
@@ -337,8 +334,7 @@ const MultiSelectCell = memo(function MultiSelectCell({
                 unknown.includes(name) ? 'bg-amber-100 text-amber-700' : avatarColor(name)
               }`}
             >
-              <span className="font-bold">{initials(name)}</span>
-              <span className="max-w-[56px] truncate">{name.split(' ')[0]}</span>
+              <span className="max-w-[72px] truncate">{name.split(' ')[0]}</span>
               <button
                 onClick={e => remove(name, e)}
                 className="ml-0.5 rounded-full hover:bg-black/10 p-0.5 leading-none"
@@ -369,14 +365,14 @@ const MultiSelectCell = memo(function MultiSelectCell({
             {unknown.map(name => (
               <label key={name} className="flex items-center gap-2 px-3 py-1.5 hover:bg-amber-50 cursor-pointer">
                 <input type="checkbox" checked onChange={() => toggle(name)} className="accent-blue-500 w-3 h-3 shrink-0" />
-                <span className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shrink-0 ${avatarColor(name)}`}>{initials(name)}</span>
+                <span className={`w-2 h-2 rounded-full shrink-0 ${avatarColor(name)}`} />
                 <span className="text-[11px] text-amber-700 truncate flex-1">{name} ⚠️</span>
               </label>
             ))}
             {options.map(name => (
               <label key={name} className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer transition-colors ${local.includes(name) ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
                 <input type="checkbox" checked={local.includes(name)} onChange={() => toggle(name)} className="accent-blue-500 w-3 h-3 shrink-0" />
-                <span className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shrink-0 ${avatarColor(name)}`}>{initials(name)}</span>
+                <span className={`w-2 h-2 rounded-full shrink-0 ${avatarColor(name)}`} />
                 <span className={`text-[11px] truncate flex-1 ${local.includes(name) ? 'text-blue-700 font-medium' : 'text-gray-700'}`}>{name}</span>
               </label>
             ))}

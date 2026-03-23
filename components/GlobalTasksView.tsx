@@ -1151,10 +1151,9 @@ export default function GlobalTasksView() {
                           {task.assignees.map(name => (
                             <span
                               key={name}
-                              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-medium leading-none ${avatarColor(name)}`}
+                              className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium leading-none ${avatarColor(name)}`}
                             >
-                              <span className="font-bold">{initials(name)}</span>
-                              <span className="max-w-[60px] truncate">{name.split(' ')[0]}</span>
+                              <span className="max-w-[72px] truncate">{name.split(' ')[0]}</span>
                             </span>
                           ))}
                         </div>
