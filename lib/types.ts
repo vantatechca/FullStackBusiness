@@ -45,7 +45,8 @@ export interface Task {
   task: string;
   recurrence: 'Daily' | 'Weekly' | 'Monthly' | 'One-Time';
   status: 'To Do' | 'In Progress' | 'Done';
-  assignee: string;
+  assignee: string;        // legacy — mirrors assignees[0], kept for DB compat
+  assignees: string[];     // primary multi-assignee field
   deadline: string;
   priority: 'Low' | 'Medium' | 'High' | 'Urgent';
   notes: string;
@@ -137,7 +138,7 @@ export interface ExchangeRates {
   last_updated: string;
 }
 
-export type ColumnType = 'text' | 'number' | 'select' | 'date';
+export type ColumnType = 'text' | 'number' | 'select' | 'multi-select' | 'date';
 
 export interface ColumnDef {
   key: string;

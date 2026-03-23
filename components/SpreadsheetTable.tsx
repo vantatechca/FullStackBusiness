@@ -246,15 +246,151 @@
 //   );
 // }
 
-
-
 'use client';
 
 import { useState, useEffect, useRef, memo, useCallback } from 'react';
-import { X, Plus } from 'lucide-react';
+import { X, Plus, ChevronDown } from 'lucide-react';
 import type { ColumnDef } from '@/lib/types';
 
-// ── Select cell with local state — change appears instantly ──────────────────
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+// ── Avatar helpers ────────────────────────────────────────────────────────────
+const AVATAR_COLORS = [
+  'bg-blue-100 text-blue-700',
+  'bg-violet-100 text-violet-700',
+  'bg-teal-100 text-teal-700',
+  'bg-rose-100 text-rose-700',
+  'bg-amber-100 text-amber-700',
+  'bg-emerald-100 text-emerald-700',
+];
+function avatarColor(name: string) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
+}
+function initials(name: string) {
+  return name.split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+}
+
+// ── Multi-select cell ─────────────────────────────────────────────────────────
+const MultiSelectCell = memo(function MultiSelectCell({
+  value,
+  options,
+  onCommit,
+}: {
+  value: string[];
+  options: string[];
+  onCommit: (val: string[]) => void;
+}) {
+  const [local, setLocal] = useState<string[]>(value ?? []);
+  const [open, setOpen]   = useState(false);
+  const ref               = useRef<HTMLDivElement>(null);
+
+  // Sync from parent only when not open (avoids clobbering in-flight changes)
+  useEffect(() => {
+    if (!open) setLocal(value ?? []);
+  }, [value, open]);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    function onDown(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [open]);
+
+  function toggle(name: string) {
+    const next = local.includes(name)
+      ? local.filter(n => n !== name)
+      : [...local, name];
+    setLocal(next);
+    onCommit(next);
+  }
+
+  function remove(name: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    const next = local.filter(n => n !== name);
+    setLocal(next);
+    onCommit(next);
+  }
+
+  const unknown = local.filter(n => !options.includes(n));
+
+  return (
+    <div ref={ref} className="relative w-full">
+      {/* Trigger */}
+      <div
+        onClick={() => setOpen(o => !o)}
+        className={`min-h-[30px] w-full px-2 py-1 rounded border text-xs cursor-pointer flex items-start gap-1 flex-wrap transition-colors ${
+          open ? 'border-blue-400 ring-1 ring-blue-200 bg-white' : 'border-transparent hover:border-gray-200 bg-transparent'
+        }`}
+      >
+        {local.length === 0 ? (
+          <span className="text-gray-400 text-[11px] self-center flex-1 select-none">—</span>
+        ) : (
+          local.map(name => (
+            <span
+              key={name}
+              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-medium leading-none ${
+                unknown.includes(name) ? 'bg-amber-100 text-amber-700' : avatarColor(name)
+              }`}
+            >
+              <span className="font-bold">{initials(name)}</span>
+              <span className="max-w-[56px] truncate">{name.split(' ')[0]}</span>
+              <button
+                onClick={e => remove(name, e)}
+                className="ml-0.5 rounded-full hover:bg-black/10 p-0.5 leading-none"
+              >
+                <X size={9} strokeWidth={2.5} />
+              </button>
+            </span>
+          ))
+        )}
+        <ChevronDown
+          size={11}
+          className={`ml-auto self-center text-gray-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
+        />
+      </div>
+
+      {/* Dropdown */}
+      {open && (
+        <div className="absolute z-50 mt-1 left-0 w-full min-w-[160px] bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+          <div className="max-h-48 overflow-y-auto py-1">
+            {local.length > 0 && (
+              <button
+                onClick={() => { const next: string[] = []; setLocal(next); onCommit(next); setOpen(false); }}
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-gray-400 hover:bg-gray-50 transition-colors"
+              >
+                <X size={11} /> Clear all
+              </button>
+            )}
+            {unknown.map(name => (
+              <label key={name} className="flex items-center gap-2 px-3 py-1.5 hover:bg-amber-50 cursor-pointer">
+                <input type="checkbox" checked onChange={() => toggle(name)} className="accent-blue-500 w-3 h-3 shrink-0" />
+                <span className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shrink-0 ${avatarColor(name)}`}>{initials(name)}</span>
+                <span className="text-[11px] text-amber-700 truncate flex-1">{name} ⚠️</span>
+              </label>
+            ))}
+            {options.map(name => (
+              <label key={name} className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer transition-colors ${local.includes(name) ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
+                <input type="checkbox" checked={local.includes(name)} onChange={() => toggle(name)} className="accent-blue-500 w-3 h-3 shrink-0" />
+                <span className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shrink-0 ${avatarColor(name)}`}>{initials(name)}</span>
+                <span className={`text-[11px] truncate flex-1 ${local.includes(name) ? 'text-blue-700 font-medium' : 'text-gray-700'}`}>{name}</span>
+              </label>
+            ))}
+            {options.length === 0 && unknown.length === 0 && (
+              <p className="px-3 py-2 text-[11px] text-gray-400">No members found</p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+});
+
+// ── Select cell ───────────────────────────────────────────────────────────────
 const SelectCell = memo(function SelectCell({
   value,
   options,
@@ -265,19 +401,15 @@ const SelectCell = memo(function SelectCell({
   onCommit: (val: string) => void;
 }) {
   const [local, setLocal] = useState(value ?? '');
-
-  // Sync if parent value changes externally (e.g. poll refetch)
-  useEffect(() => {
-    setLocal(value ?? '');
-  }, [value]);
+  useEffect(() => { setLocal(value ?? ''); }, [value]);
 
   return (
     <select
       value={local}
       onChange={e => {
         const val = e.target.value;
-        setLocal(val);  // instant visual update
-        onCommit(val);  // fire optimistic update up the tree
+        setLocal(val);
+        onCommit(val);
       }}
       className="w-full px-2 py-1.5 text-sm border-0 bg-transparent rounded focus:ring-1 focus:ring-[#3b82f6] outline-none cursor-pointer"
     >
@@ -298,7 +430,7 @@ const CellTextarea = memo(function CellTextarea({
 }) {
   const [local, setLocal] = useState(value ?? '');
   const isFocused = useRef(false);
-  const ref = useRef<HTMLTextAreaElement>(null);
+  const ref       = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (!isFocused.current) setLocal(value ?? '');
@@ -318,15 +450,9 @@ const CellTextarea = memo(function CellTextarea({
       value={local}
       onChange={e => setLocal(e.target.value)}
       onFocus={() => { isFocused.current = true; }}
-      onBlur={() => {
-        isFocused.current = false;
-        onCommit(local);
-      }}
+      onBlur={() => { isFocused.current = false; onCommit(local); }}
       onKeyDown={e => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-          e.preventDefault();
-          ref.current?.blur();
-        }
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ref.current?.blur(); }
       }}
       className="w-full px-2 py-1.5 text-sm border-0 bg-transparent rounded focus:ring-1 focus:ring-[#3b82f6] outline-none resize-none overflow-hidden leading-snug"
     />
@@ -355,10 +481,7 @@ const CellInput = memo(function CellInput({
       <input
         type="date"
         value={local}
-        onChange={e => {
-          setLocal(e.target.value);
-          onCommit(e.target.value);
-        }}
+        onChange={e => { setLocal(e.target.value); onCommit(e.target.value); }}
         onFocus={() => { isFocused.current = true; }}
         onBlur={() => { isFocused.current = false; }}
         className="w-full px-2 py-1.5 text-sm border-0 bg-transparent rounded focus:ring-1 focus:ring-[#3b82f6] outline-none cursor-pointer"
@@ -373,18 +496,15 @@ const CellInput = memo(function CellInput({
       value={local}
       onChange={e => setLocal(e.target.value)}
       onFocus={() => { isFocused.current = true; }}
-      onBlur={() => {
-        isFocused.current = false;
-        onCommit(local === '' ? 0 : parseFloat(local));
-      }}
+      onBlur={() => { isFocused.current = false; onCommit(local === '' ? 0 : parseFloat(local)); }}
       className="w-full px-2 py-1.5 text-sm border-0 bg-transparent rounded focus:ring-1 focus:ring-[#3b82f6] outline-none"
     />
   );
 });
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
-// ── Unified stable cell — routes to correct input type ───────────────────────
+// ── StableCell ────────────────────────────────────────────────────────────────
+// onUpdate is stored in a ref so memo is never broken by a new callback
+// reference — this is the main fix for typing delay.
 const StableCell = memo(function StableCell({
   rowId,
   colKey,
@@ -395,37 +515,57 @@ const StableCell = memo(function StableCell({
   rowId: string;
   colKey: string;
   col: ColumnDef;
-  value: string | number;
-  onUpdate: (id: string, key: string, value: string | number) => void;
+  value: string | number | string[];
+  onUpdate: (id: string, key: string, value: string | number | string[]) => void;
 }) {
+  // Keep onUpdate in a ref so the callbacks below are never recreated
+  const onUpdateRef = useRef(onUpdate);
+  useEffect(() => { onUpdateRef.current = onUpdate; }, [onUpdate]);
+
   const handleCommit = useCallback(
-    (val: string | number) => onUpdate(rowId, colKey, val),
-    [rowId, colKey, onUpdate]
+    (val: string | number | string[]) => onUpdateRef.current(rowId, colKey, val),
+    [rowId, colKey], // intentionally omit onUpdate — ref handles freshness
   );
+
+  if (col.type === 'multi-select') {
+    return (
+      <MultiSelectCell
+        value={Array.isArray(value) ? value : []}
+        options={col.options ?? []}
+        onCommit={handleCommit as (val: string[]) => void}
+      />
+    );
+  }
 
   if (col.type === 'select') {
     return (
       <SelectCell
         value={String(value ?? '')}
         options={col.options ?? []}
-        onCommit={handleCommit}
+        onCommit={handleCommit as (val: string) => void}
       />
     );
   }
 
   if (col.type === 'text') {
-    return <CellTextarea value={String(value ?? '')} onCommit={handleCommit} />;
+    return (
+      <CellTextarea
+        value={String(value ?? '')}
+        onCommit={handleCommit as (val: string) => void}
+      />
+    );
   }
 
   return (
     <CellInput
-      value={value}
+      value={value as string | number}
       type={col.type === 'date' ? 'date' : 'number'}
-      onCommit={handleCommit}
+      onCommit={handleCommit as (val: string | number) => void}
     />
   );
 });
 
+// ── TableRow ──────────────────────────────────────────────────────────────────
 const TableRow = memo(function TableRow({
   row,
   idx,
@@ -437,28 +577,24 @@ const TableRow = memo(function TableRow({
   row: any;
   idx: number;
   columns: ColumnDef[];
-  onUpdate: (id: string, key: string, value: string | number) => void;
+  onUpdate: (id: string, key: string, value: string | number | string[]) => void;
   onDelete: (id: string) => void;
   readOnly?: boolean;
 }) {
   return (
-    <tr
-      className={`border-b border-gray-100 ${
-        idx % 2 === 1 ? 'bg-[#fafbfc]' : 'bg-white'
-      } hover:bg-blue-50/30 transition-colors`}
-    >
+    <tr className={`border-b border-gray-100 ${idx % 2 === 1 ? 'bg-[#fafbfc]' : 'bg-white'} hover:bg-blue-50/30 transition-colors`}>
       {columns.map(col => (
         <td key={col.key} className="px-1.5 py-1 align-top">
           {readOnly ? (
             <span className="px-2 py-1.5 text-sm text-gray-700 block whitespace-pre-wrap break-words leading-snug">
-              {String(row[col.key] ?? '')}
+              {Array.isArray(row[col.key]) ? (row[col.key] as string[]).join(', ') : String(row[col.key] ?? '')}
             </span>
           ) : (
             <StableCell
               rowId={row.id}
               colKey={col.key}
               col={col}
-              value={row[col.key] ?? ''}
+              value={row[col.key] ?? (col.type === 'multi-select' ? [] : '')}
               onUpdate={onUpdate}
             />
           )}
@@ -478,10 +614,11 @@ const TableRow = memo(function TableRow({
   );
 });
 
+// ── SpreadsheetTable ──────────────────────────────────────────────────────────
 interface SpreadsheetTableProps {
   columns: ColumnDef[];
   data: any[];
-  onUpdate: (id: string, key: string, value: string | number) => void;
+  onUpdate: (id: string, key: string, value: string | number | string[]) => void;
   onDelete: (id: string) => void;
   onAdd: () => void;
   addLabel: string;
