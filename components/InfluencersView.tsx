@@ -24,37 +24,43 @@ export default function InfluencersView() {
 
   const totalRevenue = data.reduce((sum, i) => sum + (Number(i.revenue) || 0), 0);
 
-  const handleAdd = useCallback(async () => {
-    const res = await fetch('/api/influencers', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: '',
-        platform: 'Instagram',
-        followers: '',
-        promo_code: '',
-        commission_pct: 0,
-        revenue: 0,
-        contact: '',
-        notes: '',
-      }),
-    });
+const handleAdd = useCallback(async () => {
+  const tempId = `temp-${Date.now()}`;
+  const optimistic = {
+    id: tempId, name: '', platform: 'Instagram', followers: '',
+    promo_code: '', commission_pct: 0, revenue: 0,
+    contact: '', notes: '', created_at: '',
+  } as Influencer;
 
-    if (res.ok) {
-      const inserted = await res.json();
-      setData(prev => [...prev, inserted]);
-    } else {
-      await refetch();
-    }
-  }, [setData, refetch]);
+  setData(prev => [...prev, optimistic]);
 
-  const handleUpdate = useCallback(async (id: string, key: string, value: string | number) => {
-    await fetch(`/api/influencers/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ [key]: value }),
-    });
-  }, []);
+  const res = await fetch('/api/influencers', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: '', platform: 'Instagram', followers: '',
+      promo_code: '', commission_pct: 0, revenue: 0,
+      contact: '', notes: '',
+    }),
+  });
+
+  if (res.ok) {
+    const inserted = await res.json();
+    setData(prev => prev.map(row => row.id === tempId ? inserted : row));
+  } else {
+    setData(prev => prev.filter(row => row.id !== tempId));
+    await refetch();
+  }
+}, [setData, refetch]);
+
+const handleUpdate = useCallback((id: string, key: string, value: string | number | string[]) => {
+  setData(prev => prev.map(row => row.id === id ? { ...row, [key]: value } : row));
+  fetch(`/api/influencers/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ [key]: value }),
+  }).catch(() => refetch());
+}, [setData, refetch]);
 
   const handleDelete = useCallback(async (id: string) => {
     await fetch(`/api/influencers/${id}`, { method: 'DELETE' });
