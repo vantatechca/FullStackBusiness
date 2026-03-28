@@ -63,7 +63,10 @@ export default function GoalsView({ departmentId }: { departmentId?: string }) {
     try {
       const url = departmentId ? `/api/goals?deptId=${departmentId}` : '/api/goals';
       const res = await fetch(url);
-      if (res.ok) setGoals(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        setGoals(Array.isArray(data) ? data : []);
+      }
     } catch (err) {
       console.error('Failed to fetch goals:', err);
     } finally {
@@ -78,9 +81,9 @@ export default function GoalsView({ departmentId }: { departmentId?: string }) {
         fetch('/api/table-data?table=expenses'),
         fetch('/api/table-data?table=tasks'),
       ]);
-      if (revRes.ok) setLiveRevenue(await revRes.json());
-      if (expRes.ok) setLiveExpenses(await expRes.json());
-      if (taskRes.ok) setLiveTasks(await taskRes.json());
+      if (revRes.ok) { const d = await revRes.json(); setLiveRevenue(Array.isArray(d) ? d : []); }
+      if (expRes.ok) { const d = await expRes.json(); setLiveExpenses(Array.isArray(d) ? d : []); }
+      if (taskRes.ok) { const d = await taskRes.json(); setLiveTasks(Array.isArray(d) ? d : []); }
     } catch { /* silent */ }
   }, []);
 

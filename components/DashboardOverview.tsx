@@ -36,21 +36,28 @@ export default function DashboardOverview() {
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        const [revRes, expRes, taskRes, deptRes, goalsRes] = await Promise.all([
+        const [revRes, expRes, taskRes, deptRes] = await Promise.all([
           fetch('/api/table-data?table=revenue'),
           fetch('/api/table-data?table=expenses'),
           fetch('/api/table-data?table=tasks'),
           fetch('/api/table-data?table=departments'),
-          fetch('/api/goals'),
         ]);
-        const [revData, expData, taskData, deptData, goalsData] = await Promise.all([
-          revRes.json(), expRes.json(), taskRes.json(), deptRes.json(), goalsRes.json(),
+        const [revData, expData, taskData, deptData] = await Promise.all([
+          revRes.json(), expRes.json(), taskRes.json(), deptRes.json(),
         ]);
-        setRevenue(revData || []);
-        setExpenses(expData || []);
-        setTasks(taskData || []);
-        setDepartments(deptData || []);
-        setGoals(goalsData || []);
+        setRevenue(Array.isArray(revData) ? revData : []);
+        setExpenses(Array.isArray(expData) ? expData : []);
+        setTasks(Array.isArray(taskData) ? taskData : []);
+        setDepartments(Array.isArray(deptData) ? deptData : []);
+
+        // Goals fetch is separate — table may not exist yet
+        try {
+          const goalsRes = await fetch('/api/goals');
+          if (goalsRes.ok) {
+            const goalsData = await goalsRes.json();
+            setGoals(Array.isArray(goalsData) ? goalsData : []);
+          }
+        } catch { /* goals table may not exist yet */ }
       } catch (err) {
         console.error('Failed to fetch dashboard data:', err);
       } finally {
