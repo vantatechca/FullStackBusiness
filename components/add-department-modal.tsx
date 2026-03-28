@@ -240,6 +240,7 @@
 
 import { useState } from 'react';
 import { X, Plus, Loader2, Building2, Hash, Layout } from 'lucide-react';
+import { toast } from 'sonner';
 import { DEPARTMENT_ICONS } from '@/lib/departments';
 
 interface AddDepartmentModalProps {
@@ -332,10 +333,12 @@ export default function AddDepartmentModal({ open, onClose, onSuccess }: AddDepa
 
       setForm({ name: '', icon: 'BarChart3', type: 'standard' });
       setIconSearch('');
+      toast.success('Department created');
       onSuccess();
       onClose();
     } catch {
       setError('Something went wrong. Please try again.');
+      toast.error('Failed to create department');
     } finally {
       setLoading(false);
     }

@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo } from 'react';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
 import { useRealtimeTable } from '@/lib/realtime';
 import { useCurrency } from '@/lib/currency-context';
 import { useAuth } from '@/lib/auth-context';
@@ -66,20 +67,23 @@ export default function RevenueSection({ departmentId }: { departmentId: string 
     if (res.ok) {
       const inserted = await res.json();
       setData(prev => prev.map(row => row.id === tempId ? inserted : row));
+      toast.success('Revenue added');
     } else {
       setData(prev => prev.filter(row => row.id !== tempId));
       await refetch();
+      toast.error('Failed to add revenue');
     }
   }, [departmentId, profile?.id, setData, refetch]);
 
   const handleUpdate = useCallback((id: string, key: string, value: string | number | string[]) => {
     setData(prev => prev.map(row => row.id === id ? { ...row, [key]: value } : row));
-    fetch(`/api/revenue/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ [key]: value }) }).catch(() => refetch());
+    fetch(`/api/revenue/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ [key]: value }) }).catch(() => { toast.error('Failed to update revenue'); refetch(); });
   }, [setData, refetch]);
 
   const handleDelete = useCallback(async (id: string) => {
     setData(prev => prev.filter(row => row.id !== id));
     await fetch(`/api/revenue/${id}`, { method: 'DELETE' });
+    toast.success('Revenue entry deleted');
   }, [setData]);
 
   return (

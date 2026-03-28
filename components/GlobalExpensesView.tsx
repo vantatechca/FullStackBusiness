@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
 import { getDepartment } from '@/lib/departments';
 import { useCurrency } from '@/lib/currency-context';
 import { useAuth } from '@/lib/auth-context';
@@ -109,21 +110,24 @@ export default function GlobalExpensesView() {
     if (res.ok) {
       const inserted = await res.json();
       setExpenses(prev => prev.map(row => row.id === tempId ? { ...inserted, dept_name: 'General' } : row));
+      toast.success('Expense added');
     } else {
       setExpenses(prev => prev.filter(row => row.id !== tempId));
       await fetchExpenses();
+      toast.error('Failed to add expense');
     }
   }, [profile?.id, fetchExpenses]);
 
   const handleUpdate = useCallback((id: string, key: string, value: string | number | string[]) => {
     if (id.startsWith('temp-')) return;
     setExpenses(prev => prev.map(row => row.id === id ? { ...row, [key]: value } : row));
-    fetch(`/api/expenses/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ [key]: value }) }).catch(() => fetchExpenses());
+    fetch(`/api/expenses/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ [key]: value }) }).catch(() => { fetchExpenses(); toast.error('Failed to update expense'); });
   }, [fetchExpenses]);
 
   const handleDelete = useCallback(async (id: string) => {
     setExpenses(prev => prev.filter(row => row.id !== id));
     await fetch(`/api/expenses/${id}`, { method: 'DELETE' });
+    toast.success('Expense deleted');
     window.dispatchEvent(new CustomEvent('expenses-updated'));
   }, []);
 

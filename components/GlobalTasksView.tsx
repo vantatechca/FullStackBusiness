@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { toast } from 'sonner';
 import {
   ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, Clock, Circle, ListTodo,
 } from 'lucide-react';
@@ -175,9 +176,11 @@ export default function GlobalTasksView() {
     if (res.ok) {
       const inserted = await res.json();
       setTasks(prev => prev.map(row => row.id === tempId ? { ...inserted, dept_name: 'General', assignees: [] } : row));
+      toast.success('Task added');
     } else {
       setTasks(prev => prev.filter(row => row.id !== tempId));
       await fetchTasks();
+      toast.error('Failed to add task');
     }
   }, [profile?.id, fetchTasks]);
 
@@ -190,12 +193,13 @@ export default function GlobalTasksView() {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
-    }).catch(() => fetchTasks());
+    }).catch(() => { toast.error('Failed to update task'); fetchTasks(); });
   }, [fetchTasks]);
 
   const handleDelete = useCallback(async (id: string) => {
     setTasks(prev => prev.filter(row => row.id !== id));
     await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+    toast.success('Task deleted');
   }, []);
 
   return (
