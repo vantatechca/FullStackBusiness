@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { requireAuth, requireDeptAccess, apiHandler } from '@/lib/api-auth';
 
+export const dynamic = 'force-dynamic';
+
 // GET /api/revenue?deptId=shopify  (deptId is optional — omit to get all revenue)
 export const GET = apiHandler(async (req) => {
   const { searchParams } = new URL(req.url);
