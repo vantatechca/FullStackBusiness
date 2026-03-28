@@ -496,7 +496,7 @@ export default function DashboardOverview() {
         </div>
       </div>
 
-      <QuickAddModal open={quickAddOpen} onClose={() => setQuickAddOpen(false)} defaultType={quickAddType} />
+      <QuickAddModal open={quickAddOpen} onClose={() => setQuickAddOpen(false)} entityType={quickAddType} />
     </div>
   );
 }

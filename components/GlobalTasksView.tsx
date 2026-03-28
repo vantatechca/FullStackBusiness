@@ -2,12 +2,11 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
-  ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, Clock, Circle, ListTodo, Plus,
+  ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, Clock, Circle, ListTodo,
 } from 'lucide-react';
 import { getDepartment } from '@/lib/departments';
 import { useAuth } from '@/lib/auth-context';
 import SpreadsheetTable from './SpreadsheetTable';
-import QuickAddModal from './QuickAddModal';
 import type { Task, ColumnDef } from '@/lib/types';
 
 type FilterType = 'all' | 'To Do' | 'In Progress' | 'Done';
@@ -68,7 +67,6 @@ export default function GlobalTasksView() {
   const [sortField, setSortField] = useState<SortField>('none');
   const [sortDir, setSortDir]     = useState<SortDir>('asc');
   const [memberNames, setMemberNames] = useState<string[]>([]);
-  const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
   const { profile } = useAuth();
 
@@ -260,13 +258,6 @@ export default function GlobalTasksView() {
             <SortButton field="Priority"   active={sortField === 'priority'}   dir={sortDir} onClick={() => toggleSort('priority')} />
             <SortButton field="Recurrence" active={sortField === 'recurrence'} dir={sortDir} onClick={() => toggleSort('recurrence')} />
           </div>
-          <button
-            onClick={() => setShowQuickAdd(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#3b82f6] text-white text-xs font-medium rounded-lg hover:bg-[#2563eb] transition-colors shadow-sm"
-          >
-            <Plus size={13} />
-            Quick Add
-          </button>
         </div>
       </div>
 
@@ -280,8 +271,6 @@ export default function GlobalTasksView() {
         addLabel="Add Task"
         loading={loading}
       />
-
-      <QuickAddModal open={showQuickAdd} onClose={() => { setShowQuickAdd(false); fetchTasks(); }} defaultType="task" />
     </div>
   );
 }

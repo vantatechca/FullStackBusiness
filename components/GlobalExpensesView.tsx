@@ -2,13 +2,12 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
-import { Plus } from 'lucide-react';
+
 import { getDepartment } from '@/lib/departments';
 import { useCurrency } from '@/lib/currency-context';
 import { useAuth } from '@/lib/auth-context';
 import { convertToUSD } from '@/lib/exchange-rates';
 import SpreadsheetTable from './SpreadsheetTable';
-import QuickAddModal from './QuickAddModal';
 import type { Expense, ColumnDef } from '@/lib/types';
 import { CURRENCIES } from '@/lib/types';
 
@@ -24,7 +23,6 @@ const columns: ColumnDef[] = [
 export default function GlobalExpensesView() {
   const [expenses, setExpenses] = useState<(Expense & { dept_name: string })[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showQuickAdd, setShowQuickAdd] = useState(false);
   const { formatDisplay, rates } = useCurrency();
   const { profile } = useAuth();
 
@@ -110,21 +108,12 @@ export default function GlobalExpensesView() {
 
   return (
     <div className="space-y-5">
-      {/* Header with total and quick add */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <span className="text-lg font-bold text-[#ef4444]">
-            Total Expenses: {formatDisplay(totalUSD)}
-          </span>
-          <p className="text-xs text-gray-400 mt-0.5">{expenses.length} entries across all departments</p>
-        </div>
-        <button
-          onClick={() => setShowQuickAdd(true)}
-          className="flex items-center gap-1.5 px-3 py-2 bg-[#3b82f6] text-white text-sm font-medium rounded-lg hover:bg-[#2563eb] transition-colors shadow-sm"
-        >
-          <Plus size={14} />
-          Quick Add Expense
-        </button>
+      {/* Header with total */}
+      <div>
+        <span className="text-lg font-bold text-[#ef4444]">
+          Total Expenses: {formatDisplay(totalUSD)}
+        </span>
+        <p className="text-xs text-gray-400 mt-0.5">{expenses.length} entries across all departments</p>
       </div>
 
       {/* Editable Table */}
@@ -138,7 +127,6 @@ export default function GlobalExpensesView() {
         loading={loading}
       />
 
-      <QuickAddModal open={showQuickAdd} onClose={() => { setShowQuickAdd(false); fetchExpenses(); }} defaultType="expense" />
     </div>
   );
 }
