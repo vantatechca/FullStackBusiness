@@ -29,7 +29,7 @@ export const GET = apiHandler(async (req) => {
 // POST /api/tasks  (department_id is now optional)
 export const POST = apiHandler(async (req) => {
   const body = await req.json();
-  const { department_id, task, status, assignee, assignees, deadline, priority, notes, recurrence } = body;
+  const { department_id, task, status, assignee, assignees, deadline, priority, notes, recurrence, goal_target, goal_current } = body;
 
   let user;
   if (department_id) {
@@ -39,8 +39,8 @@ export const POST = apiHandler(async (req) => {
   }
 
   const rows = await sql`
-    INSERT INTO public.tasks (department_id, task, status, assignee, assignees, deadline, priority, notes, recurrence, created_by)
-    VALUES (${department_id || null}, ${task}, ${status}, ${assignee || ''}, ${(assignees || []) as any}, ${deadline || null}, ${priority}, ${notes || ''}, ${recurrence || 'One-Time'}, ${user.id})
+    INSERT INTO public.tasks (department_id, task, status, assignee, assignees, deadline, priority, notes, recurrence, goal_target, goal_current, created_by)
+    VALUES (${department_id || null}, ${task}, ${status}, ${assignee || ''}, ${(assignees || []) as any}, ${deadline || null}, ${priority}, ${notes || ''}, ${recurrence || 'One-Time'}, ${goal_target ?? 0}, ${goal_current ?? 0}, ${user.id})
     RETURNING *
   `;
   return NextResponse.json(rows[0], { status: 201 });

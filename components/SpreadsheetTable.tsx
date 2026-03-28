@@ -507,12 +507,14 @@ const StableCell = memo(function StableCell({
   col,
   value,
   onUpdate,
+  row,
 }: {
   rowId: string;
   colKey: string;
   col: ColumnDef;
   value: string | number | string[];
   onUpdate: (id: string, key: string, value: string | number | string[]) => void;
+  row?: any;
 }) {
   // Keep onUpdate in a ref so the callbacks below are never recreated
   const onUpdateRef = useRef(onUpdate);
@@ -549,6 +551,28 @@ const StableCell = memo(function StableCell({
         value={String(value ?? '')}
         onCommit={handleCommit as (val: string) => void}
       />
+    );
+  }
+
+  // Read-only progress bar: computes percentage from goal_target and goal_current on the row
+  if (col.type === 'progress' as any) {
+    const target = Number(row?.goal_target) || 0;
+    const current = Number(row?.goal_current) || 0;
+    if (target <= 0) {
+      return <span className="px-2 py-1.5 text-[11px] text-gray-300 block">—</span>;
+    }
+    const pct = Math.min(Math.round((current / target) * 100), 100);
+    const barColor = pct >= 80 ? 'bg-emerald-500' : pct >= 50 ? 'bg-amber-400' : 'bg-red-400';
+    const textColor = pct >= 80 ? 'text-emerald-700' : pct >= 50 ? 'text-amber-700' : 'text-red-600';
+    return (
+      <div className="px-2 py-2">
+        <div className="flex items-center gap-1.5">
+          <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden min-w-[40px]">
+            <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${pct}%` }} />
+          </div>
+          <span className={`text-[11px] font-bold tabular-nums ${textColor}`}>{pct}%</span>
+        </div>
+      </div>
     );
   }
 
@@ -592,6 +616,7 @@ const TableRow = memo(function TableRow({
               col={col}
               value={row[col.key] ?? (col.type === 'multi-select' ? [] : '')}
               onUpdate={onUpdate}
+              row={row}
             />
           )}
         </td>

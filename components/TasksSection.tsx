@@ -274,13 +274,16 @@ function parseAssignees(raw: unknown): string[] {
 }
 
 const BASE_COLUMNS: ColumnDef[] = [
-  { key: 'task',        label: 'Task',       type: 'text',         width: '200px' },
-  { key: 'recurrence',  label: 'Recurrence', type: 'select',       options: ['Daily', 'Weekly', 'Monthly', 'One-Time'], width: '120px' },
-  { key: 'status',      label: 'Status',     type: 'select',       options: ['To Do', 'In Progress', 'Done'], width: '120px' },
-  { key: 'assignees',   label: 'Assignees',  type: 'multi-select', options: [], width: '160px' },
-  { key: 'deadline',    label: 'Deadline',   type: 'date',         width: '150px' },
-  { key: 'priority',    label: 'Priority',   type: 'select',       options: ['Low', 'Medium', 'High', 'Urgent'], width: '110px' },
-  { key: 'notes',       label: 'Notes',      type: 'text',         width: '180px' },
+  { key: 'task',         label: 'Task',       type: 'text',         width: '200px' },
+  { key: 'recurrence',   label: 'Recurrence', type: 'select',       options: ['Daily', 'Weekly', 'Monthly', 'One-Time'], width: '120px' },
+  { key: 'status',       label: 'Status',     type: 'select',       options: ['To Do', 'In Progress', 'Done'], width: '120px' },
+  { key: 'assignees',    label: 'Assignees',  type: 'multi-select', options: [], width: '160px' },
+  { key: 'goal_target',  label: 'Goal',       type: 'number',       width: '80px' },
+  { key: 'goal_current', label: 'Done',       type: 'number',       width: '80px' },
+  { key: '_progress',    label: 'Progress',   type: 'progress' as any, width: '110px' },
+  { key: 'deadline',     label: 'Deadline',   type: 'date',         width: '150px' },
+  { key: 'priority',     label: 'Priority',   type: 'select',       options: ['Low', 'Medium', 'High', 'Urgent'], width: '110px' },
+  { key: 'notes',        label: 'Notes',      type: 'text',         width: '180px' },
 ];
 
 function SortButton({ field, active, dir, onClick }: {
@@ -408,8 +411,9 @@ export default function TasksSection({ departmentId }: { departmentId: string })
     const optimistic = {
       id: tempId, department_id: departmentId,
       task: '', recurrence: 'One-Time', status: 'To Do',
-      assignees: [], assignee: '',          // keep legacy field for compat
+      assignees: [], assignee: '',
       deadline: '', priority: 'Medium', notes: '',
+      goal_target: 0, goal_current: 0,
       created_by: profile?.id ?? null,
     } as unknown as Task;
 
@@ -422,6 +426,7 @@ export default function TasksSection({ departmentId }: { departmentId: string })
         department_id: departmentId, task: '', recurrence: 'One-Time',
         status: 'To Do', assignees: [], assignee: '',
         deadline: '', priority: 'Medium', notes: '',
+        goal_target: 0, goal_current: 0,
         created_by: profile?.id,
       }),
     });

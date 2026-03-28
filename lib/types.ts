@@ -50,6 +50,8 @@ export interface Task {
   deadline: string;
   priority: 'Low' | 'Medium' | 'High' | 'Urgent';
   notes: string;
+  goal_target: number;
+  goal_current: number;
   created_by: string | null;
   created_at: string;
 }

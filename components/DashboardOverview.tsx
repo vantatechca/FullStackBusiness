@@ -11,7 +11,7 @@ import type { Revenue, Expense, Task, Goal } from '@/lib/types';
 import {
   TrendingUp, TrendingDown, BarChart3, ArrowUpRight, ArrowDownRight,
   Plus, CheckSquare, Wallet, Users, CheckCircle2, Clock, Circle,
-  Activity, DollarSign, Target,
+  Activity, DollarSign, Target, AlertTriangle,
 } from 'lucide-react';
 import QuickAddModal from './QuickAddModal';
 
@@ -120,6 +120,30 @@ export default function DashboardOverview() {
       return { ...goal, current_value: current, pct };
     }).slice(0, 4);
   }, [goals]);
+
+  // Stagnant task alerts: tasks with a goal_target > 0 but goal_current is 0 or < 25%
+  const stagnantTasks = useMemo(() => {
+    return tasks
+      .filter(t => {
+        const target = Number((t as any).goal_target) || 0;
+        const current = Number((t as any).goal_current) || 0;
+        if (target <= 0) return false;
+        const pct = Math.round((current / target) * 100);
+        return pct < 25 && t.status !== 'Done';
+      })
+      .map(t => {
+        const target = Number((t as any).goal_target) || 0;
+        const current = Number((t as any).goal_current) || 0;
+        const pct = target > 0 ? Math.round((current / target) * 100) : 0;
+        const assignees = Array.isArray((t as any).assignees)
+          ? (t as any).assignees
+          : typeof (t as any).assignee === 'string' && (t as any).assignee
+            ? [(t as any).assignee]
+            : [];
+        return { ...t, pct, assignees, goal_target: target, goal_current: current };
+      })
+      .slice(0, 5);
+  }, [tasks]);
 
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
@@ -300,6 +324,45 @@ export default function DashboardOverview() {
                   <p className="text-[11px] text-gray-400 mt-1.5">
                     Target: {goal.target_value.toLocaleString()}
                   </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Stagnant Tasks Alert ── */}
+      {stagnantTasks.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-red-100 flex items-center gap-2">
+            <AlertTriangle size={16} className="text-red-500" />
+            <h3 className="font-semibold text-red-800 text-sm">Needs Attention</h3>
+            <span className="text-xs text-red-500 font-medium ml-1">
+              {stagnantTasks.length} task{stagnantTasks.length > 1 ? 's' : ''} behind on goals
+            </span>
+          </div>
+          <div className="divide-y divide-red-100">
+            {stagnantTasks.map(t => {
+              const pctColor = t.pct === 0 ? 'bg-red-400' : 'bg-amber-400';
+              return (
+                <div key={t.id} className="px-5 py-3 flex items-center gap-4">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-red-900 truncate">{t.task || 'Untitled task'}</p>
+                    <p className="text-xs text-red-500 mt-0.5">
+                      {t.goal_current}/{t.goal_target} completed ({t.pct}%)
+                      {t.assignees.length > 0 && (
+                        <span className="ml-2">
+                          — Assigned to: <strong>{t.assignees.join(', ')}</strong>
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <div className="w-20 shrink-0">
+                    <div className="bg-red-200 rounded-full h-2 overflow-hidden">
+                      <div className={`h-full rounded-full ${pctColor}`} style={{ width: `${t.pct}%` }} />
+                    </div>
+                  </div>
+                  <span className="text-xs font-bold text-red-600 w-10 text-right tabular-nums">{t.pct}%</span>
                 </div>
               );
             })}
