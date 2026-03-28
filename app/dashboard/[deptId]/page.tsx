@@ -80,6 +80,7 @@ import RestockDepartment from '@/components/RestockDepartment';
 import TeamView from '@/components/TeamView';
 import GlobalTasksView from '@/components/GlobalTasksView';
 import GlobalExpensesView from '@/components/GlobalExpensesView';
+import GlobalRevenueView from '@/components/GlobalRevenueView';
 import NetProfitView from '@/components/NetProfitView';
 import AdminPanel from '@/components/AdminPanel';
 import GoalsView from '@/components/GoalsView';
@@ -171,6 +172,8 @@ export default function DepartmentPage({ params }: { params: { deptId: string } 
       return <GlobalTasksView />;
     case 'expenses-global':
       return <GlobalExpensesView />;
+    case 'revenue-global':
+      return <GlobalRevenueView />;
     case 'goals':
       return <GoalsView />;
     case 'net-profit':
