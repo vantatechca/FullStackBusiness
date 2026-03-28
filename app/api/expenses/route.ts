@@ -29,7 +29,7 @@ export const GET = apiHandler(async (req) => {
 // POST /api/expenses  (department_id is now optional)
 export const POST = apiHandler(async (req) => {
   const body = await req.json();
-  const { department_id, date, description, category, amount, currency, paid_by } = body;
+  const { department_id, task_id, date, description, category, amount, currency, paid_by } = body;
 
   let user;
   if (department_id) {
@@ -39,8 +39,8 @@ export const POST = apiHandler(async (req) => {
   }
 
   const rows = await sql`
-    INSERT INTO public.expenses (department_id, date, description, category, amount, currency, paid_by, created_by)
-    VALUES (${department_id || null}, ${date}, ${description}, ${category || ''}, ${amount}, ${currency || 'USD'}, ${paid_by || ''}, ${user.id})
+    INSERT INTO public.expenses (department_id, task_id, date, description, category, amount, currency, paid_by, created_by)
+    VALUES (${department_id || null}, ${task_id || null}, ${date}, ${description}, ${category || ''}, ${amount}, ${currency || 'USD'}, ${paid_by || ''}, ${user.id})
     RETURNING *
   `;
   return NextResponse.json(rows[0], { status: 201 });

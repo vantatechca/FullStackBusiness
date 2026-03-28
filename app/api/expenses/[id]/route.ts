@@ -13,7 +13,8 @@ export const PATCH = apiHandler(async (req, { params }: { params: { id: string }
       category = COALESCE(${body.category ?? null}, category),
       amount = COALESCE(${body.amount ?? null}, amount),
       currency = COALESCE(${body.currency ?? null}, currency),
-      paid_by = COALESCE(${body.paid_by ?? null}, paid_by)
+      paid_by = COALESCE(${body.paid_by ?? null}, paid_by),
+      task_id = COALESCE(${body.task_id ?? null}, task_id)
     WHERE id = ${params.id}
     RETURNING *
   `;

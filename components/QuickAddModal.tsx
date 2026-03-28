@@ -62,6 +62,8 @@ export default function QuickAddModal({ open, onClose, entityType }: QuickAddMod
   const [expAmount, setExpAmount] = useState('');
   const [expCurrency, setExpCurrency] = useState('USD');
   const [expPaidBy, setExpPaidBy] = useState('');
+  const [expTaskId, setExpTaskId] = useState('');
+  const [tasks, setTasks] = useState<{ id: string; task: string }[]>([]);
 
   // Member
   const [memberName, setMemberName] = useState('');
@@ -83,13 +85,18 @@ export default function QuickAddModal({ open, onClose, entityType }: QuickAddMod
         setMembers((Array.isArray(m) ? m : []).map((member: any) => ({ id: member.id, name: member.name })));
       }).catch(() => {});
     }
+    if (entityType === 'expense') {
+      fetch('/api/table-data?table=tasks').then(r => r.json()).then(t => {
+        setTasks((Array.isArray(t) ? t : []).filter((task: any) => task.task).map((task: any) => ({ id: task.id, task: task.task })));
+      }).catch(() => {});
+    }
   }, [open, entityType]);
 
   const resetForm = useCallback(() => {
     setTaskName(''); setTaskDeptId(''); setTaskStatus('To Do'); setTaskPriority('Medium');
     setTaskRecurrence('One-Time'); setTaskDeadline(''); setTaskAssignees([]); setTaskGoalTarget(''); setTaskNotes('');
     setExpDeptId(''); setExpDate(new Date().toISOString().split('T')[0]); setExpDescription('');
-    setExpCategory(''); setExpAmount(''); setExpCurrency('USD'); setExpPaidBy('');
+    setExpCategory(''); setExpAmount(''); setExpCurrency('USD'); setExpPaidBy(''); setExpTaskId('');
     setMemberName(''); setMemberRole(''); setMemberEmail(''); setMemberDepts(''); setMemberStatus('Active');
     setError(''); setSuccess('');
   }, []);
@@ -119,8 +126,8 @@ export default function QuickAddModal({ open, onClose, entityType }: QuickAddMod
         const res = await fetch('/api/expenses', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            department_id: expDeptId || null, date: expDate,
-            description: expDescription.trim(), category: expCategory,
+            department_id: expDeptId || null, task_id: expTaskId || null,
+            date: expDate, description: expDescription.trim(), category: expCategory,
             amount: Number(expAmount), currency: expCurrency, paid_by: expPaidBy,
           }),
         });
@@ -223,7 +230,19 @@ export default function QuickAddModal({ open, onClose, entityType }: QuickAddMod
               <div><label className={labelCls}>Date</label><input type="date" value={expDate} onChange={e => setExpDate(e.target.value)} className={inputCls} /></div>
               <div><label className={labelCls}>Category</label><input type="text" value={expCategory} onChange={e => setExpCategory(e.target.value)} placeholder="e.g. Software, Office" className={inputCls} /></div>
             </div>
-            <div><label className={labelCls}>Paid By</label><input type="text" value={expPaidBy} onChange={e => setExpPaidBy(e.target.value)} placeholder="Who paid?" className={inputCls} /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><label className={labelCls}>Paid By</label><input type="text" value={expPaidBy} onChange={e => setExpPaidBy(e.target.value)} placeholder="Who paid?" className={inputCls} /></div>
+              <div>
+                <label className={labelCls}>Task <span className="text-gray-300 font-normal normal-case">(optional)</span></label>
+                <div className="relative">
+                  <select value={expTaskId} onChange={e => setExpTaskId(e.target.value)} className={selectCls}>
+                    <option value="">No task</option>
+                    {tasks.map(t => <option key={t.id} value={t.id}>{t.task}</option>)}
+                  </select>
+                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                </div>
+              </div>
+            </div>
           </>
         )}
 

@@ -29,6 +29,7 @@ export interface Revenue {
 export interface Expense {
   id: string;
   department_id: string;
+  task_id: string | null;
   date: string;
   description: string;
   category: string;
