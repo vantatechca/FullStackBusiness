@@ -1,859 +1,14 @@
-
-// 'use client';
-
-// import { useState, useEffect, useMemo, useCallback, memo } from 'react';
-// import { ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, Clock, Circle, ListTodo } from 'lucide-react';
-// import { getDepartment } from '@/lib/departments';
-// import type { Task } from '@/lib/types';
-
-// type FilterType = 'all' | 'To Do' | 'In Progress' | 'Done';
-// type SortField = 'none' | 'status' | 'priority' | 'recurrence';
-// type SortDir = 'asc' | 'desc';
-
-// const STATUS_ORDER: Record<string, number> = { 'To Do': 0, 'In Progress': 1, 'Done': 2 };
-// const PRIORITY_ORDER: Record<string, number> = { Urgent: 0, High: 1, Medium: 2, Low: 3 };
-// const RECURRENCE_ORDER: Record<string, number> = { Daily: 0, Weekly: 1, Monthly: 2, 'One-Time': 3 };
-
-// const RECURRENCE_COLORS: Record<string, string> = {
-//   Daily:      'bg-blue-50 text-blue-600 border-blue-100',
-//   Weekly:     'bg-teal-50 text-teal-600 border-teal-100',
-//   Monthly:    'bg-violet-50 text-violet-600 border-violet-100',
-//   'One-Time': 'bg-gray-50 text-gray-500 border-gray-200',
-// };
-
-// const PRIORITY_CONFIG: Record<string, { label: string; cls: string; dot: string }> = {
-//   Urgent: { label: 'Urgent', cls: 'text-red-600 font-bold',   dot: 'bg-red-500'    },
-//   High:   { label: 'High',   cls: 'text-orange-500 font-semibold', dot: 'bg-orange-400' },
-//   Medium: { label: 'Medium', cls: 'text-amber-600',           dot: 'bg-amber-400'  },
-//   Low:    { label: 'Low',    cls: 'text-gray-400',            dot: 'bg-gray-300'   },
-// };
-
-// const STATUS_CONFIG: Record<string, { cls: string; dot: string }> = {
-//   'To Do':       { cls: 'bg-red-50 text-red-600 border-red-100',       dot: 'bg-red-400'     },
-//   'In Progress': { cls: 'bg-amber-50 text-amber-600 border-amber-100', dot: 'bg-amber-400'   },
-//   'Done':        { cls: 'bg-emerald-50 text-emerald-700 border-emerald-100', dot: 'bg-emerald-400' },
-// };
-
-// const COL_WIDTHS = {
-//   department: '160px',
-//   task:       '220px',
-//   recurrence: '105px',
-//   status:     '120px',
-//   assignee:   '140px',
-//   deadline:   '110px',
-//   priority:   '90px',
-// };
-
-// function SortButton({ field, active, dir, onClick }: {
-//   field: string; active: boolean; dir: SortDir; onClick: () => void;
-// }) {
-//   return (
-//     <button
-//       onClick={onClick}
-//       className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${
-//         active
-//           ? 'bg-[#3b82f6] text-white border-[#3b82f6] shadow-sm'
-//           : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300 hover:text-gray-700'
-//       }`}
-//     >
-//       {field}
-//       {active ? dir === 'asc' ? <ArrowUp size={11} /> : <ArrowDown size={11} /> : <ArrowUpDown size={11} />}
-//     </button>
-//   );
-// }
-
-// const AssigneeSelect = memo(function AssigneeSelect({
-//   value, allMemberNames, onChange,
-// }: {
-//   value: string; allMemberNames: string[]; onChange: (val: string) => void;
-// }) {
-//   const [local, setLocal] = useState(value ?? '');
-//   const isMismatch = !!local && !allMemberNames.includes(local);
-
-//   useEffect(() => { setLocal(value ?? ''); }, [value]);
-
-//   return (
-//     <select
-//       value={local}
-//       onChange={e => { const val = e.target.value; setLocal(val); onChange(val); }}
-//       className={`w-full px-2 py-1 text-xs rounded-lg border transition-colors outline-none focus:ring-1 focus:ring-blue-300 cursor-pointer ${
-//         isMismatch
-//           ? 'border-amber-300 bg-amber-50 text-amber-700'
-//           : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-//       }`}
-//     >
-//       <option value="">— Unassigned —</option>
-//       {isMismatch && <option value={local}>{local} ⚠️</option>}
-//       {allMemberNames.map(name => <option key={name} value={name}>{name}</option>)}
-//     </select>
-//   );
-// });
-
-// export default function GlobalTasksView() {
-//   const [tasks, setTasks] = useState<(Task & { dept_name: string })[]>([]);
-//   const [loading, setLoading] = useState(true);
-//   const [filter, setFilter] = useState<FilterType>('all');
-//   const [sortField, setSortField] = useState<SortField>('none');
-//   const [sortDir, setSortDir] = useState<SortDir>('asc');
-//   const [allMemberNames, setAllMemberNames] = useState<string[]>([]);
-
-//   useEffect(() => {
-//     fetch('/api/team-members')
-//       .then(res => res.ok ? res.json() : [])
-//       .then((members: { name: string }[]) => {
-//         setAllMemberNames(members.map(m => m.name).filter(Boolean).sort((a, b) => a.localeCompare(b)));
-//       })
-//       .catch(() => setAllMemberNames([]));
-//   }, []);
-
-//   const fetchTasks = useCallback(async () => {
-//     try {
-//       const res = await fetch('/api/table-data?table=tasks');
-//       if (!res.ok) throw new Error('Failed to fetch');
-//       const data = await res.json();
-//       setTasks(
-//         [...data]
-//           .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-//           .map(t => ({
-//             ...t,
-//             recurrence: t.recurrence ?? 'One-Time',
-//             dept_name: getDepartment(t.department_id)?.name || t.department_id,
-//           }))
-//       );
-//     } catch (err) {
-//       console.error('Failed to fetch tasks:', err);
-//     } finally {
-//       setLoading(false);
-//     }
-//   }, []);
-
-//   useEffect(() => {
-//     fetchTasks();
-//     const interval = setInterval(fetchTasks, 30000);
-//     return () => clearInterval(interval);
-//   }, [fetchTasks]);
-
-//   const handleAssigneeChange = useCallback((taskId: string, assignee: string) => {
-//     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, assignee } : t));
-//     fetch(`/api/tasks/${taskId}`, {
-//       method: 'PATCH',
-//       headers: { 'Content-Type': 'application/json' },
-//       body: JSON.stringify({ assignee }),
-//     }).catch(() => fetchTasks());
-//   }, [fetchTasks]);
-
-//   const counts = {
-//     all:           tasks.length,
-//     'To Do':       tasks.filter(t => t.status === 'To Do').length,
-//     'In Progress': tasks.filter(t => t.status === 'In Progress').length,
-//     Done:          tasks.filter(t => t.status === 'Done').length,
-//   };
-
-//   const completionPct = counts.all > 0 ? Math.round((counts.Done / counts.all) * 100) : 0;
-
-//   function toggleSort(field: SortField) {
-//     if (sortField === field) {
-//       if (sortDir === 'asc') setSortDir('desc');
-//       else { setSortField('none'); setSortDir('asc'); }
-//     } else { setSortField(field); setSortDir('asc'); }
-//   }
-
-//   const filtered = useMemo(() => {
-//     const list = filter === 'all' ? tasks : tasks.filter(t => t.status === filter);
-//     if (sortField === 'none') return list;
-//     return [...list].sort((a, b) => {
-//       let valA: number, valB: number;
-//       if (sortField === 'status') {
-//         valA = STATUS_ORDER[a.status] ?? 99; valB = STATUS_ORDER[b.status] ?? 99;
-//       } else if (sortField === 'recurrence') {
-//         valA = RECURRENCE_ORDER[a.recurrence] ?? 99; valB = RECURRENCE_ORDER[b.recurrence] ?? 99;
-//       } else {
-//         valA = PRIORITY_ORDER[a.priority] ?? 99; valB = PRIORITY_ORDER[b.priority] ?? 99;
-//       }
-//       return sortDir === 'asc' ? valA - valB : valB - valA;
-//     });
-//   }, [tasks, filter, sortField, sortDir]);
-
-//   if (loading) {
-//     return (
-//       <div className="space-y-3">
-//         {[...Array(5)].map((_, i) => (
-//           <div key={i} className="h-10 bg-gray-100 rounded-xl animate-pulse" />
-//         ))}
-//       </div>
-//     );
-//   }
-
-//   return (
-//     <div className="space-y-5">
-
-//       {/* ── Stat cards + progress ── */}
-//       <div className="flex items-center gap-3 flex-wrap">
-//         {[
-//           { key: 'To Do',       count: counts['To Do'],       icon: <Circle size={15} className="text-red-400 shrink-0" />,       cls: 'bg-red-50 border-red-100 text-red-600'         },
-//           { key: 'In Progress', count: counts['In Progress'], icon: <Clock size={15} className="text-amber-400 shrink-0" />,       cls: 'bg-amber-50 border-amber-100 text-amber-600'   },
-//           { key: 'Done',        count: counts.Done,           icon: <CheckCircle2 size={15} className="text-emerald-400 shrink-0" />, cls: 'bg-emerald-50 border-emerald-100 text-emerald-600' },
-//         ].map(s => (
-//           <div key={s.key} className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${s.cls}`}>
-//             {s.icon}
-//             <div>
-//               <p className="text-lg font-bold leading-none">{s.count}</p>
-//               <p className="text-[10px] font-semibold uppercase tracking-wider opacity-70 mt-0.5">{s.key}</p>
-//             </div>
-//           </div>
-//         ))}
-
-//         {/* Progress bar */}
-//         {counts.all > 0 && (
-//           <div className="flex-1 min-w-[140px]">
-//             <div className="flex items-center justify-between mb-1">
-//               <span className="text-[11px] text-gray-400 font-medium">Completion</span>
-//               <span className="text-[11px] font-bold text-gray-600">{completionPct}%</span>
-//             </div>
-//             <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-//               <div
-//                 className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full transition-all duration-500"
-//                 style={{ width: `${completionPct}%` }}
-//               />
-//             </div>
-//           </div>
-//         )}
-//       </div>
-
-//       {/* ── Filter pills + sort ── */}
-//       <div className="flex items-center justify-between flex-wrap gap-3">
-//         <div className="flex gap-1.5 flex-wrap">
-//           {([
-//             { key: 'all',         label: `All (${counts.all})`                       },
-//             { key: 'To Do',       label: `To Do (${counts['To Do']})`                },
-//             { key: 'In Progress', label: `In Progress (${counts['In Progress']})`    },
-//             { key: 'Done',        label: `Done (${counts.Done})`                     },
-//           ] as { key: FilterType; label: string }[]).map(f => (
-//             <button
-//               key={f.key}
-//               onClick={() => setFilter(f.key)}
-//               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
-//                 filter === f.key
-//                   ? 'bg-[#3b82f6] text-white border-[#3b82f6] shadow-sm'
-//                   : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:border-gray-300'
-//               }`}
-//             >
-//               {f.label}
-//             </button>
-//           ))}
-//         </div>
-//         <div className="flex items-center gap-1.5">
-//           <span className="text-[11px] text-gray-400 font-medium mr-0.5">Sort:</span>
-//           <SortButton field="Status"     active={sortField === 'status'}     dir={sortDir} onClick={() => toggleSort('status')} />
-//           <SortButton field="Priority"   active={sortField === 'priority'}   dir={sortDir} onClick={() => toggleSort('priority')} />
-//           <SortButton field="Recurrence" active={sortField === 'recurrence'} dir={sortDir} onClick={() => toggleSort('recurrence')} />
-//         </div>
-//       </div>
-
-//       {/* ── Table ── */}
-//       {filtered.length === 0 ? (
-//         <div className="text-center py-16 border-2 border-dashed border-gray-200 rounded-2xl bg-gray-50/50">
-//           <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
-//             <ListTodo size={22} className="text-gray-300" />
-//           </div>
-//           <p className="text-sm font-medium text-gray-400 mb-1">No tasks found</p>
-//           <p className="text-xs text-gray-300">Try a different filter</p>
-//         </div>
-//       ) : (
-//         <div className="overflow-x-auto border border-gray-200 rounded-2xl shadow-sm">
-//           <table className="w-full text-sm table-fixed">
-//             <thead>
-//               <tr className="border-b border-gray-100 bg-gray-50/80">
-//                 <th style={{ width: COL_WIDTHS.department }} className="text-left text-[11px] font-bold text-gray-400 uppercase tracking-wider px-3 py-3">Department</th>
-//                 <th style={{ width: COL_WIDTHS.task }}       className="text-left text-[11px] font-bold text-gray-400 uppercase tracking-wider px-3 py-3">Task</th>
-//                 <th style={{ width: COL_WIDTHS.recurrence }} className="text-left text-[11px] font-bold text-gray-400 uppercase tracking-wider px-3 py-3">Recurrence</th>
-//                 <th style={{ width: COL_WIDTHS.status }}     className="text-left text-[11px] font-bold text-gray-400 uppercase tracking-wider px-3 py-3">Status</th>
-//                 <th style={{ width: COL_WIDTHS.assignee }}   className="text-left text-[11px] font-bold text-gray-400 uppercase tracking-wider px-3 py-3">Assignee</th>
-//                 <th style={{ width: COL_WIDTHS.deadline }}   className="text-left text-[11px] font-bold text-gray-400 uppercase tracking-wider px-3 py-3">Deadline</th>
-//                 <th style={{ width: COL_WIDTHS.priority }}   className="text-left text-[11px] font-bold text-gray-400 uppercase tracking-wider px-3 py-3">Priority</th>
-//               </tr>
-//             </thead>
-//             <tbody>
-//               {filtered.map((task, idx) => {
-//                 const statusCfg   = STATUS_CONFIG[task.status]   ?? STATUS_CONFIG['To Do'];
-//                 const priorityCfg = PRIORITY_CONFIG[task.priority] ?? PRIORITY_CONFIG.Low;
-
-//                 return (
-//                   <tr
-//                     key={task.id}
-//                     className={`border-b border-gray-50 last:border-b-0 align-top hover:bg-blue-50/20 transition-colors ${
-//                       idx % 2 === 1 ? 'bg-gray-50/40' : 'bg-white'
-//                     }`}
-//                   >
-//                     {/* Department */}
-//                     <td className="px-3 py-2.5 text-gray-600 text-xs">
-//                       <span className="block break-words whitespace-normal leading-snug">{task.dept_name}</span>
-//                     </td>
-
-//                     {/* Task */}
-//                     <td className="px-3 py-2.5 text-gray-900 text-xs font-medium">
-//                       <span className="block break-words whitespace-pre-wrap leading-snug">{task.task}</span>
-//                     </td>
-
-//                     {/* Recurrence */}
-//                     <td className="px-3 py-2.5">
-//                       <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium border whitespace-nowrap ${RECURRENCE_COLORS[task.recurrence] ?? RECURRENCE_COLORS['One-Time']}`}>
-//                         {task.recurrence ?? 'One-Time'}
-//                       </span>
-//                     </td>
-
-//                     {/* Status */}
-//                     <td className="px-3 py-2.5">
-//                       <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border whitespace-nowrap ${statusCfg.cls}`}>
-//                         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusCfg.dot}`} />
-//                         {task.status}
-//                       </span>
-//                     </td>
-
-//                     {/* Assignee */}
-//                     <td className="px-3 py-2">
-//                       <AssigneeSelect
-//                         value={task.assignee || ''}
-//                         allMemberNames={allMemberNames}
-//                         onChange={val => handleAssigneeChange(task.id, val)}
-//                       />
-//                     </td>
-
-//                     {/* Deadline */}
-//                     <td className="px-3 py-2.5 text-gray-500 whitespace-nowrap text-xs">{task.deadline}</td>
-
-//                     {/* Priority */}
-//                     <td className="px-3 py-2.5">
-//                       <span className={`inline-flex items-center gap-1.5 text-xs whitespace-nowrap ${priorityCfg.cls}`}>
-//                         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${priorityCfg.dot}`} />
-//                         {priorityCfg.label}
-//                       </span>
-//                     </td>
-//                   </tr>
-//                 );
-//               })}
-//             </tbody>
-//           </table>
-//         </div>
-//       )}
-//     </div>
-//   );
-// }
-
-
-
-// 'use client';
-
-// import { useState, useEffect, useMemo, useCallback, memo, useRef } from 'react';
-// import { ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, Clock, Circle, ListTodo, X, ChevronDown } from 'lucide-react';
-// import { getDepartment } from '@/lib/departments';
-// import type { Task } from '@/lib/types';
-
-// type FilterType = 'all' | 'To Do' | 'In Progress' | 'Done';
-// type SortField = 'none' | 'status' | 'priority' | 'recurrence';
-// type SortDir = 'asc' | 'desc';
-
-// const STATUS_ORDER: Record<string, number> = { 'To Do': 0, 'In Progress': 1, 'Done': 2 };
-// const PRIORITY_ORDER: Record<string, number> = { Urgent: 0, High: 1, Medium: 2, Low: 3 };
-// const RECURRENCE_ORDER: Record<string, number> = { Daily: 0, Weekly: 1, Monthly: 2, 'One-Time': 3 };
-
-// const RECURRENCE_COLORS: Record<string, string> = {
-//   Daily:      'bg-blue-50 text-blue-600 border-blue-100',
-//   Weekly:     'bg-teal-50 text-teal-600 border-teal-100',
-//   Monthly:    'bg-violet-50 text-violet-600 border-violet-100',
-//   'One-Time': 'bg-gray-50 text-gray-500 border-gray-200',
-// };
-
-// const PRIORITY_CONFIG: Record<string, { label: string; cls: string; dot: string }> = {
-//   Urgent: { label: 'Urgent', cls: 'text-red-600 font-bold',        dot: 'bg-red-500'    },
-//   High:   { label: 'High',   cls: 'text-orange-500 font-semibold', dot: 'bg-orange-400' },
-//   Medium: { label: 'Medium', cls: 'text-amber-600',                dot: 'bg-amber-400'  },
-//   Low:    { label: 'Low',    cls: 'text-gray-400',                 dot: 'bg-gray-300'   },
-// };
-
-// const STATUS_CONFIG: Record<string, { cls: string; dot: string }> = {
-//   'To Do':       { cls: 'bg-red-50 text-red-600 border-red-100',            dot: 'bg-red-400'     },
-//   'In Progress': { cls: 'bg-amber-50 text-amber-600 border-amber-100',      dot: 'bg-amber-400'   },
-//   'Done':        { cls: 'bg-emerald-50 text-emerald-700 border-emerald-100', dot: 'bg-emerald-400' },
-// };
-
-// const COL_WIDTHS = {
-//   department: '150px',
-//   task:       '200px',
-//   recurrence: '105px',
-//   status:     '120px',
-//   assignee:   '180px',
-//   deadline:   '110px',
-//   priority:   '90px',
-// };
-
-// // ── Assignee avatar initials ──────────────────────────────────────────────────
-// const AVATAR_COLORS = [
-//   'bg-blue-100 text-blue-700',
-//   'bg-violet-100 text-violet-700',
-//   'bg-teal-100 text-teal-700',
-//   'bg-rose-100 text-rose-700',
-//   'bg-amber-100 text-amber-700',
-//   'bg-emerald-100 text-emerald-700',
-// ];
-
-// function avatarColor(name: string) {
-//   let hash = 0;
-//   for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-//   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-// }
-
-// function initials(name: string) {
-//   return name
-//     .split(' ')
-//     .filter(Boolean)
-//     .slice(0, 2)
-//     .map(w => w[0].toUpperCase())
-//     .join('');
-// }
-
-// // ── Sort button ───────────────────────────────────────────────────────────────
-// function SortButton({ field, active, dir, onClick }: {
-//   field: string; active: boolean; dir: SortDir; onClick: () => void;
-// }) {
-//   return (
-//     <button
-//       onClick={onClick}
-//       className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${
-//         active
-//           ? 'bg-[#3b82f6] text-white border-[#3b82f6] shadow-sm'
-//           : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300 hover:text-gray-700'
-//       }`}
-//     >
-//       {field}
-//       {active ? dir === 'asc' ? <ArrowUp size={11} /> : <ArrowDown size={11} /> : <ArrowUpDown size={11} />}
-//     </button>
-//   );
-// }
-
-// // ── Multi-assignee select ─────────────────────────────────────────────────────
-// const AssigneeMultiSelect = memo(function AssigneeMultiSelect({
-//   value,
-//   allMemberNames,
-//   onChange,
-// }: {
-//   value: string[];
-//   allMemberNames: string[];
-//   onChange: (val: string[]) => void;
-// }) {
-//   const [open, setOpen] = useState(false);
-//   const ref = useRef<HTMLDivElement>(null);
-
-//   // Close on outside click
-//   useEffect(() => {
-//     function onDown(e: MouseEvent) {
-//       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-//     }
-//     if (open) document.addEventListener('mousedown', onDown);
-//     return () => document.removeEventListener('mousedown', onDown);
-//   }, [open]);
-
-//   function toggle(name: string) {
-//     const next = value.includes(name)
-//       ? value.filter(n => n !== name)
-//       : [...value, name];
-//     onChange(next);
-//   }
-
-//   function remove(name: string, e: React.MouseEvent) {
-//     e.stopPropagation();
-//     onChange(value.filter(n => n !== name));
-//   }
-
-//   // Detect any selected names not in the known list
-//   const unknown = value.filter(n => !allMemberNames.includes(n));
-
-//   return (
-//     <div ref={ref} className="relative w-full">
-//       {/* Trigger */}
-//       <div
-//         onClick={() => setOpen(o => !o)}
-//         className={`min-h-[30px] w-full px-2 py-1 rounded-lg border text-xs cursor-pointer flex items-start gap-1 flex-wrap transition-colors ${
-//           open ? 'border-blue-400 ring-1 ring-blue-200' : 'border-gray-200 hover:border-gray-300'
-//         } bg-white`}
-//       >
-//         {value.length === 0 ? (
-//           <span className="text-gray-400 text-[11px] self-center flex-1">— Unassigned —</span>
-//         ) : (
-//           value.map(name => (
-//             <span
-//               key={name}
-//               className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-medium leading-none ${
-//                 unknown.includes(name) ? 'bg-amber-100 text-amber-700' : avatarColor(name)
-//               }`}
-//             >
-//               <span className="font-bold">{initials(name)}</span>
-//               <span className="max-w-[60px] truncate">{name.split(' ')[0]}</span>
-//               <button
-//                 onClick={e => remove(name, e)}
-//                 className="ml-0.5 rounded-full hover:bg-black/10 p-0.5 leading-none"
-//               >
-//                 <X size={9} strokeWidth={2.5} />
-//               </button>
-//             </span>
-//           ))
-//         )}
-//         <ChevronDown
-//           size={12}
-//           className={`ml-auto self-center text-gray-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
-//         />
-//       </div>
-
-//       {/* Dropdown */}
-//       {open && (
-//         <div className="absolute z-50 mt-1 w-full min-w-[160px] bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
-//           <div className="max-h-48 overflow-y-auto py-1">
-//             {/* Unassign all */}
-//             {value.length > 0 && (
-//               <button
-//                 onClick={() => { onChange([]); setOpen(false); }}
-//                 className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-gray-400 hover:bg-gray-50 transition-colors"
-//               >
-//                 <X size={11} />
-//                 Clear all
-//               </button>
-//             )}
-//             {/* Unknown names at top */}
-//             {unknown.map(name => (
-//               <label
-//                 key={name}
-//                 className="flex items-center gap-2 px-3 py-1.5 hover:bg-amber-50 cursor-pointer transition-colors"
-//               >
-//                 <input
-//                   type="checkbox"
-//                   checked
-//                   onChange={() => toggle(name)}
-//                   className="accent-blue-500 w-3 h-3 shrink-0"
-//                 />
-//                 <span className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shrink-0 ${avatarColor(name)}`}>
-//                   {initials(name)}
-//                 </span>
-//                 <span className="text-[11px] text-amber-700 truncate flex-1">{name} ⚠️</span>
-//               </label>
-//             ))}
-//             {/* All known members */}
-//             {allMemberNames.map(name => (
-//               <label
-//                 key={name}
-//                 className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer transition-colors ${
-//                   value.includes(name) ? 'bg-blue-50' : 'hover:bg-gray-50'
-//                 }`}
-//               >
-//                 <input
-//                   type="checkbox"
-//                   checked={value.includes(name)}
-//                   onChange={() => toggle(name)}
-//                   className="accent-blue-500 w-3 h-3 shrink-0"
-//                 />
-//                 <span className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shrink-0 ${avatarColor(name)}`}>
-//                   {initials(name)}
-//                 </span>
-//                 <span className={`text-[11px] truncate flex-1 ${value.includes(name) ? 'text-blue-700 font-medium' : 'text-gray-700'}`}>
-//                   {name}
-//                 </span>
-//               </label>
-//             ))}
-//             {allMemberNames.length === 0 && unknown.length === 0 && (
-//               <p className="px-3 py-2 text-[11px] text-gray-400">No team members found</p>
-//             )}
-//           </div>
-//         </div>
-//       )}
-//     </div>
-//   );
-// });
-
-// // ── Helpers ───────────────────────────────────────────────────────────────────
-
-// /** Normalise the raw DB value (string | string[] | null) → string[] */
-// function parseAssignees(raw: unknown): string[] {
-//   if (!raw) return [];
-//   if (Array.isArray(raw)) return raw.filter(Boolean);
-//   if (typeof raw === 'string') {
-//     // Try JSON array stored as string
-//     if (raw.trim().startsWith('[')) {
-//       try { return JSON.parse(raw).filter(Boolean); } catch { /* fall through */ }
-//     }
-//     // Comma-separated legacy value
-//     return raw.split(',').map(s => s.trim()).filter(Boolean);
-//   }
-//   return [];
-// }
-
-// // ── Main component ────────────────────────────────────────────────────────────
-// export default function GlobalTasksView() {
-//   const [tasks, setTasks] = useState<(Task & { dept_name: string; assignees: string[] })[]>([]);
-//   const [loading, setLoading] = useState(true);
-//   const [filter, setFilter] = useState<FilterType>('all');
-//   const [sortField, setSortField] = useState<SortField>('none');
-//   const [sortDir, setSortDir] = useState<SortDir>('asc');
-//   const [allMemberNames, setAllMemberNames] = useState<string[]>([]);
-
-//   useEffect(() => {
-//     fetch('/api/team-members')
-//       .then(res => res.ok ? res.json() : [])
-//       .then((members: { name: string }[]) => {
-//         setAllMemberNames(
-//           members.map(m => m.name).filter(Boolean).sort((a, b) => a.localeCompare(b))
-//         );
-//       })
-//       .catch(() => setAllMemberNames([]));
-//   }, []);
-
-//   const fetchTasks = useCallback(async () => {
-//     try {
-//       const res = await fetch('/api/table-data?table=tasks');
-//       if (!res.ok) throw new Error('Failed to fetch');
-//       const data = await res.json();
-//       setTasks(
-//         [...data]
-//           .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-//           .map(t => ({
-//             ...t,
-//             recurrence: t.recurrence ?? 'One-Time',
-//             dept_name: getDepartment(t.department_id)?.name || t.department_id,
-//             // Support legacy `assignee` string and new `assignees` array
-//             assignees: parseAssignees(t.assignees ?? t.assignee),
-//           }))
-//       );
-//     } catch (err) {
-//       console.error('Failed to fetch tasks:', err);
-//     } finally {
-//       setLoading(false);
-//     }
-//   }, []);
-
-//   useEffect(() => {
-//     fetchTasks();
-//     const interval = setInterval(fetchTasks, 30000);
-//     return () => clearInterval(interval);
-//   }, [fetchTasks]);
-
-//   const handleAssigneesChange = useCallback((taskId: string, assignees: string[]) => {
-//     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, assignees } : t));
-//     fetch(`/api/tasks/${taskId}`, {
-//       method: 'PATCH',
-//       headers: { 'Content-Type': 'application/json' },
-//       // Send both fields for maximum backend compatibility during migration
-//       body: JSON.stringify({
-//         assignees,
-//         assignee: assignees[0] ?? '',   // keep legacy column in sync if needed
-//       }),
-//     }).catch(() => fetchTasks());
-//   }, [fetchTasks]);
-
-//   const counts = {
-//     all:           tasks.length,
-//     'To Do':       tasks.filter(t => t.status === 'To Do').length,
-//     'In Progress': tasks.filter(t => t.status === 'In Progress').length,
-//     Done:          tasks.filter(t => t.status === 'Done').length,
-//   };
-
-//   const completionPct = counts.all > 0 ? Math.round((counts.Done / counts.all) * 100) : 0;
-
-//   function toggleSort(field: SortField) {
-//     if (sortField === field) {
-//       if (sortDir === 'asc') setSortDir('desc');
-//       else { setSortField('none'); setSortDir('asc'); }
-//     } else {
-//       setSortField(field); setSortDir('asc');
-//     }
-//   }
-
-//   const filtered = useMemo(() => {
-//     const list = filter === 'all' ? tasks : tasks.filter(t => t.status === filter);
-//     if (sortField === 'none') return list;
-//     return [...list].sort((a, b) => {
-//       let valA: number, valB: number;
-//       if (sortField === 'status') {
-//         valA = STATUS_ORDER[a.status] ?? 99; valB = STATUS_ORDER[b.status] ?? 99;
-//       } else if (sortField === 'recurrence') {
-//         valA = RECURRENCE_ORDER[a.recurrence] ?? 99; valB = RECURRENCE_ORDER[b.recurrence] ?? 99;
-//       } else {
-//         valA = PRIORITY_ORDER[a.priority] ?? 99; valB = PRIORITY_ORDER[b.priority] ?? 99;
-//       }
-//       return sortDir === 'asc' ? valA - valB : valB - valA;
-//     });
-//   }, [tasks, filter, sortField, sortDir]);
-
-//   if (loading) {
-//     return (
-//       <div className="space-y-3">
-//         {[...Array(5)].map((_, i) => (
-//           <div key={i} className="h-10 bg-gray-100 rounded-xl animate-pulse" />
-//         ))}
-//       </div>
-//     );
-//   }
-
-//   return (
-//     <div className="space-y-5">
-
-//       {/* ── Stat cards + progress ── */}
-//       <div className="flex items-center gap-3 flex-wrap">
-//         {[
-//           { key: 'To Do',       count: counts['To Do'],       icon: <Circle size={15} className="text-red-400 shrink-0" />,          cls: 'bg-red-50 border-red-100 text-red-600'              },
-//           { key: 'In Progress', count: counts['In Progress'], icon: <Clock size={15} className="text-amber-400 shrink-0" />,          cls: 'bg-amber-50 border-amber-100 text-amber-600'        },
-//           { key: 'Done',        count: counts.Done,           icon: <CheckCircle2 size={15} className="text-emerald-400 shrink-0" />, cls: 'bg-emerald-50 border-emerald-100 text-emerald-600'  },
-//         ].map(s => (
-//           <div key={s.key} className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${s.cls}`}>
-//             {s.icon}
-//             <div>
-//               <p className="text-lg font-bold leading-none">{s.count}</p>
-//               <p className="text-[10px] font-semibold uppercase tracking-wider opacity-70 mt-0.5">{s.key}</p>
-//             </div>
-//           </div>
-//         ))}
-
-//         {/* Progress bar */}
-//         {counts.all > 0 && (
-//           <div className="flex-1 min-w-[140px]">
-//             <div className="flex items-center justify-between mb-1">
-//               <span className="text-[11px] text-gray-400 font-medium">Completion</span>
-//               <span className="text-[11px] font-bold text-gray-600">{completionPct}%</span>
-//             </div>
-//             <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-//               <div
-//                 className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full transition-all duration-500"
-//                 style={{ width: `${completionPct}%` }}
-//               />
-//             </div>
-//           </div>
-//         )}
-//       </div>
-
-//       {/* ── Filter pills + sort ── */}
-//       <div className="flex items-center justify-between flex-wrap gap-3">
-//         <div className="flex gap-1.5 flex-wrap">
-//           {([
-//             { key: 'all',         label: `All (${counts.all})`                    },
-//             { key: 'To Do',       label: `To Do (${counts['To Do']})`             },
-//             { key: 'In Progress', label: `In Progress (${counts['In Progress']})` },
-//             { key: 'Done',        label: `Done (${counts.Done})`                  },
-//           ] as { key: FilterType; label: string }[]).map(f => (
-//             <button
-//               key={f.key}
-//               onClick={() => setFilter(f.key)}
-//               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
-//                 filter === f.key
-//                   ? 'bg-[#3b82f6] text-white border-[#3b82f6] shadow-sm'
-//                   : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:border-gray-300'
-//               }`}
-//             >
-//               {f.label}
-//             </button>
-//           ))}
-//         </div>
-//         <div className="flex items-center gap-1.5">
-//           <span className="text-[11px] text-gray-400 font-medium mr-0.5">Sort:</span>
-//           <SortButton field="Status"     active={sortField === 'status'}     dir={sortDir} onClick={() => toggleSort('status')} />
-//           <SortButton field="Priority"   active={sortField === 'priority'}   dir={sortDir} onClick={() => toggleSort('priority')} />
-//           <SortButton field="Recurrence" active={sortField === 'recurrence'} dir={sortDir} onClick={() => toggleSort('recurrence')} />
-//         </div>
-//       </div>
-
-//       {/* ── Table ── */}
-//       {filtered.length === 0 ? (
-//         <div className="text-center py-16 border-2 border-dashed border-gray-200 rounded-2xl bg-gray-50/50">
-//           <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
-//             <ListTodo size={22} className="text-gray-300" />
-//           </div>
-//           <p className="text-sm font-medium text-gray-400 mb-1">No tasks found</p>
-//           <p className="text-xs text-gray-300">Try a different filter</p>
-//         </div>
-//       ) : (
-//         <div className="overflow-x-auto border border-gray-200 rounded-2xl shadow-sm">
-//           <table className="w-full text-sm table-fixed">
-//             <thead>
-//               <tr className="border-b border-gray-100 bg-gray-50/80">
-//                 <th style={{ width: COL_WIDTHS.department }} className="text-left text-[11px] font-bold text-gray-400 uppercase tracking-wider px-3 py-3">Department</th>
-//                 <th style={{ width: COL_WIDTHS.task }}       className="text-left text-[11px] font-bold text-gray-400 uppercase tracking-wider px-3 py-3">Task</th>
-//                 <th style={{ width: COL_WIDTHS.recurrence }} className="text-left text-[11px] font-bold text-gray-400 uppercase tracking-wider px-3 py-3">Recurrence</th>
-//                 <th style={{ width: COL_WIDTHS.status }}     className="text-left text-[11px] font-bold text-gray-400 uppercase tracking-wider px-3 py-3">Status</th>
-//                 <th style={{ width: COL_WIDTHS.assignee }}   className="text-left text-[11px] font-bold text-gray-400 uppercase tracking-wider px-3 py-3">Assignees</th>
-//                 <th style={{ width: COL_WIDTHS.deadline }}   className="text-left text-[11px] font-bold text-gray-400 uppercase tracking-wider px-3 py-3">Deadline</th>
-//                 <th style={{ width: COL_WIDTHS.priority }}   className="text-left text-[11px] font-bold text-gray-400 uppercase tracking-wider px-3 py-3">Priority</th>
-//               </tr>
-//             </thead>
-//             <tbody>
-//               {filtered.map((task, idx) => {
-//                 const statusCfg   = STATUS_CONFIG[task.status]     ?? STATUS_CONFIG['To Do'];
-//                 const priorityCfg = PRIORITY_CONFIG[task.priority] ?? PRIORITY_CONFIG.Low;
-
-//                 return (
-//                   <tr
-//                     key={task.id}
-//                     className={`border-b border-gray-50 last:border-b-0 align-top hover:bg-blue-50/20 transition-colors ${
-//                       idx % 2 === 1 ? 'bg-gray-50/40' : 'bg-white'
-//                     }`}
-//                   >
-//                     {/* Department */}
-//                     <td className="px-3 py-2.5 text-gray-600 text-xs">
-//                       <span className="block break-words whitespace-normal leading-snug">{task.dept_name}</span>
-//                     </td>
-
-//                     {/* Task */}
-//                     <td className="px-3 py-2.5 text-gray-900 text-xs font-medium">
-//                       <span className="block break-words whitespace-pre-wrap leading-snug">{task.task}</span>
-//                     </td>
-
-//                     {/* Recurrence */}
-//                     <td className="px-3 py-2.5">
-//                       <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium border whitespace-nowrap ${RECURRENCE_COLORS[task.recurrence] ?? RECURRENCE_COLORS['One-Time']}`}>
-//                         {task.recurrence ?? 'One-Time'}
-//                       </span>
-//                     </td>
-
-//                     {/* Status */}
-//                     <td className="px-3 py-2.5">
-//                       <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border whitespace-nowrap ${statusCfg.cls}`}>
-//                         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusCfg.dot}`} />
-//                         {task.status}
-//                       </span>
-//                     </td>
-
-//                     {/* Assignees */}
-//                     <td className="px-3 py-2">
-//                       <AssigneeMultiSelect
-//                         value={task.assignees}
-//                         allMemberNames={allMemberNames}
-//                         onChange={val => handleAssigneesChange(task.id, val)}
-//                       />
-//                     </td>
-
-//                     {/* Deadline */}
-//                     <td className="px-3 py-2.5 text-gray-500 whitespace-nowrap text-xs">{task.deadline}</td>
-
-//                     {/* Priority */}
-//                     <td className="px-3 py-2.5">
-//                       <span className={`inline-flex items-center gap-1.5 text-xs whitespace-nowrap ${priorityCfg.cls}`}>
-//                         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${priorityCfg.dot}`} />
-//                         {priorityCfg.label}
-//                       </span>
-//                     </td>
-//                   </tr>
-//                 );
-//               })}
-//             </tbody>
-//           </table>
-//         </div>
-//       )}
-//     </div>
-//   );
-// }
-
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, Clock, Circle, ListTodo } from 'lucide-react';
+import {
+  ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, Clock, Circle, ListTodo, Plus,
+} from 'lucide-react';
 import { getDepartment } from '@/lib/departments';
-import type { Task } from '@/lib/types';
+import { useAuth } from '@/lib/auth-context';
+import SpreadsheetTable from './SpreadsheetTable';
+import QuickAddModal from './QuickAddModal';
+import type { Task, ColumnDef } from '@/lib/types';
 
 type FilterType = 'all' | 'To Do' | 'In Progress' | 'Done';
 type SortField = 'none' | 'status' | 'priority' | 'recurrence';
@@ -862,55 +17,6 @@ type SortDir = 'asc' | 'desc';
 const STATUS_ORDER: Record<string, number> = { 'To Do': 0, 'In Progress': 1, 'Done': 2 };
 const PRIORITY_ORDER: Record<string, number> = { Urgent: 0, High: 1, Medium: 2, Low: 3 };
 const RECURRENCE_ORDER: Record<string, number> = { Daily: 0, Weekly: 1, Monthly: 2, 'One-Time': 3 };
-
-const RECURRENCE_COLORS: Record<string, string> = {
-  Daily:      'bg-blue-50 text-blue-600 border-blue-100',
-  Weekly:     'bg-teal-50 text-teal-600 border-teal-100',
-  Monthly:    'bg-violet-50 text-violet-600 border-violet-100',
-  'One-Time': 'bg-gray-50 text-gray-500 border-gray-200',
-};
-
-const PRIORITY_CONFIG: Record<string, { label: string; cls: string; dot: string }> = {
-  Urgent: { label: 'Urgent', cls: 'text-red-600 font-bold',        dot: 'bg-red-500'    },
-  High:   { label: 'High',   cls: 'text-orange-500 font-semibold', dot: 'bg-orange-400' },
-  Medium: { label: 'Medium', cls: 'text-amber-600',                dot: 'bg-amber-400'  },
-  Low:    { label: 'Low',    cls: 'text-gray-400',                 dot: 'bg-gray-300'   },
-};
-
-const STATUS_CONFIG: Record<string, { cls: string; dot: string }> = {
-  'To Do':       { cls: 'bg-red-50 text-red-600 border-red-100',             dot: 'bg-red-400'     },
-  'In Progress': { cls: 'bg-amber-50 text-amber-600 border-amber-100',       dot: 'bg-amber-400'   },
-  'Done':        { cls: 'bg-emerald-50 text-emerald-700 border-emerald-100', dot: 'bg-emerald-400' },
-};
-
-const COL_WIDTHS = {
-  department: '150px',
-  task:       '200px',
-  recurrence: '105px',
-  status:     '120px',
-  assignee:   '180px',
-  deadline:   '110px',
-  priority:   '90px',
-};
-
-const AVATAR_COLORS = [
-  'bg-blue-100 text-blue-700',
-  'bg-violet-100 text-violet-700',
-  'bg-teal-100 text-teal-700',
-  'bg-rose-100 text-rose-700',
-  'bg-amber-100 text-amber-700',
-  'bg-emerald-100 text-emerald-700',
-];
-
-function avatarColor(name: string) {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-}
-
-function initials(name: string) {
-  return name.split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
-}
 
 function parseAssignees(raw: unknown): string[] {
   if (!raw) return [];
@@ -923,6 +29,16 @@ function parseAssignees(raw: unknown): string[] {
   }
   return [];
 }
+
+const BASE_COLUMNS: ColumnDef[] = [
+  { key: 'task',       label: 'Task',       type: 'text',         width: '200px' },
+  { key: 'recurrence', label: 'Recurrence', type: 'select',       options: ['Daily', 'Weekly', 'Monthly', 'One-Time'], width: '120px' },
+  { key: 'status',     label: 'Status',     type: 'select',       options: ['To Do', 'In Progress', 'Done'], width: '120px' },
+  { key: 'assignees',  label: 'Assignees',  type: 'multi-select', options: [], width: '160px' },
+  { key: 'deadline',   label: 'Deadline',   type: 'date',         width: '150px' },
+  { key: 'priority',   label: 'Priority',   type: 'select',       options: ['Low', 'Medium', 'High', 'Urgent'], width: '110px' },
+  { key: 'notes',      label: 'Notes',      type: 'text',         width: '180px' },
+];
 
 function SortButton({ field, active, dir, onClick }: {
   field: string; active: boolean; dir: SortDir; onClick: () => void;
@@ -943,11 +59,15 @@ function SortButton({ field, active, dir, onClick }: {
 }
 
 export default function GlobalTasksView() {
-  const [tasks, setTasks] = useState<(Task & { dept_name: string; assignees: string[] })[]>([]);
+  const [tasks, setTasks] = useState<(Task & { dept_name: string })[]>([]);
   const [loading, setLoading]     = useState(true);
   const [filter, setFilter]       = useState<FilterType>('all');
   const [sortField, setSortField] = useState<SortField>('none');
   const [sortDir, setSortDir]     = useState<SortDir>('asc');
+  const [memberNames, setMemberNames] = useState<string[]>([]);
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
+  const { profile } = useAuth();
 
   const fetchTasks = useCallback(async () => {
     try {
@@ -956,12 +76,12 @@ export default function GlobalTasksView() {
       const data = await res.json();
       setTasks(
         [...data]
-          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-          .map(t => ({
+          .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          .map((t: any) => ({
             ...t,
             recurrence: t.recurrence ?? 'One-Time',
-            dept_name:  getDepartment(t.department_id)?.name || t.department_id,
-            assignees:  parseAssignees(t.assignees ?? t.assignee),
+            dept_name: t.department_id ? (getDepartment(t.department_id)?.name || t.department_id) : 'General',
+            assignees: parseAssignees(t.assignees ?? t.assignee),
           }))
       );
     } catch (err) {
@@ -977,13 +97,28 @@ export default function GlobalTasksView() {
     return () => clearInterval(interval);
   }, [fetchTasks]);
 
+  useEffect(() => {
+    fetch('/api/table-data?table=team_members').then(r => r.json()).then(m => {
+      setMemberNames((m || []).map((member: any) => member.name).filter(Boolean).sort());
+    }).catch(() => {});
+    fetch('/api/departments').then(r => r.json()).then(d => {
+      setDepartments((d || []).filter((dept: any) => ['standard', 'gmb', 'influencers', 'restock'].includes(dept.type)));
+    }).catch(() => {});
+  }, []);
+
+  const columns: ColumnDef[] = useMemo(() =>
+    BASE_COLUMNS.map(col =>
+      col.key === 'assignees' ? { ...col, options: memberNames } : col
+    ),
+    [memberNames],
+  );
+
   const counts = {
     all:           tasks.length,
     'To Do':       tasks.filter(t => t.status === 'To Do').length,
     'In Progress': tasks.filter(t => t.status === 'In Progress').length,
     Done:          tasks.filter(t => t.status === 'Done').length,
   };
-
   const completionPct = counts.all > 0 ? Math.round((counts.Done / counts.all) * 100) : 0;
 
   function toggleSort(field: SortField) {
@@ -1011,20 +146,59 @@ export default function GlobalTasksView() {
     });
   }, [tasks, filter, sortField, sortDir]);
 
-  if (loading) {
-    return (
-      <div className="space-y-3">
-        {[...Array(5)].map((_, i) => (
-          <div key={i} className="h-10 bg-gray-100 rounded-xl animate-pulse" />
-        ))}
-      </div>
-    );
-  }
+  const handleAdd = useCallback(async () => {
+    const tempId = `temp-${Date.now()}`;
+    const optimistic = {
+      id: tempId, department_id: '',
+      task: '', recurrence: 'One-Time', status: 'To Do',
+      assignees: [], assignee: '',
+      deadline: '', priority: 'Medium', notes: '',
+      created_by: profile?.id ?? null,
+      dept_name: 'General',
+    } as any;
+
+    setTasks(prev => [optimistic, ...prev]);
+
+    const res = await fetch('/api/tasks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        department_id: null, task: '', recurrence: 'One-Time',
+        status: 'To Do', assignees: [], assignee: '',
+        deadline: '', priority: 'Medium', notes: '',
+      }),
+    });
+
+    if (res.ok) {
+      const inserted = await res.json();
+      setTasks(prev => prev.map(row => row.id === tempId ? { ...inserted, dept_name: 'General', assignees: [] } : row));
+    } else {
+      setTasks(prev => prev.filter(row => row.id !== tempId));
+      await fetchTasks();
+    }
+  }, [profile?.id, fetchTasks]);
+
+  const handleUpdate = useCallback((id: string, key: string, value: string | number | string[]) => {
+    if (id.startsWith('temp-')) return;
+    setTasks(prev => prev.map(row => row.id === id ? { ...row, [key]: value } : row));
+    const body: Record<string, unknown> = { [key]: value };
+    if (key === 'assignees' && Array.isArray(value)) body.assignee = value[0] ?? '';
+    fetch(`/api/tasks/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }).catch(() => fetchTasks());
+  }, [fetchTasks]);
+
+  const handleDelete = useCallback(async (id: string) => {
+    setTasks(prev => prev.filter(row => row.id !== id));
+    await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+  }, []);
 
   return (
     <div className="space-y-5">
 
-      {/* ── Stat cards + progress ── */}
+      {/* Stat cards + progress */}
       <div className="flex items-center gap-3 flex-wrap">
         {[
           { key: 'To Do',       count: counts['To Do'],       icon: <Circle size={15} className="text-red-400 shrink-0" />,          cls: 'bg-red-50 border-red-100 text-red-600'             },
@@ -1039,7 +213,6 @@ export default function GlobalTasksView() {
             </div>
           </div>
         ))}
-
         {counts.all > 0 && (
           <div className="flex-1 min-w-[140px]">
             <div className="flex items-center justify-between mb-1">
@@ -1047,16 +220,13 @@ export default function GlobalTasksView() {
               <span className="text-[11px] font-bold text-gray-600">{completionPct}%</span>
             </div>
             <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full transition-all duration-500"
-                style={{ width: `${completionPct}%` }}
-              />
+              <div className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full transition-all duration-500" style={{ width: `${completionPct}%` }} />
             </div>
           </div>
         )}
       </div>
 
-      {/* ── Filter pills + sort ── */}
+      {/* Filter pills + sort + Quick Add */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex gap-1.5 flex-wrap">
           {([
@@ -1078,103 +248,35 @@ export default function GlobalTasksView() {
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-[11px] text-gray-400 font-medium mr-0.5">Sort:</span>
-          <SortButton field="Status"     active={sortField === 'status'}     dir={sortDir} onClick={() => toggleSort('status')} />
-          <SortButton field="Priority"   active={sortField === 'priority'}   dir={sortDir} onClick={() => toggleSort('priority')} />
-          <SortButton field="Recurrence" active={sortField === 'recurrence'} dir={sortDir} onClick={() => toggleSort('recurrence')} />
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] text-gray-400 font-medium mr-0.5">Sort:</span>
+            <SortButton field="Status"     active={sortField === 'status'}     dir={sortDir} onClick={() => toggleSort('status')} />
+            <SortButton field="Priority"   active={sortField === 'priority'}   dir={sortDir} onClick={() => toggleSort('priority')} />
+            <SortButton field="Recurrence" active={sortField === 'recurrence'} dir={sortDir} onClick={() => toggleSort('recurrence')} />
+          </div>
+          <button
+            onClick={() => setShowQuickAdd(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#3b82f6] text-white text-xs font-medium rounded-lg hover:bg-[#2563eb] transition-colors shadow-sm"
+          >
+            <Plus size={13} />
+            Quick Add
+          </button>
         </div>
       </div>
 
-      {/* ── Table ── */}
-      {filtered.length === 0 ? (
-        <div className="text-center py-16 border-2 border-dashed border-gray-200 rounded-2xl bg-gray-50/50">
-          <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
-            <ListTodo size={22} className="text-gray-300" />
-          </div>
-          <p className="text-sm font-medium text-gray-400 mb-1">No tasks found</p>
-          <p className="text-xs text-gray-300">Try a different filter</p>
-        </div>
-      ) : (
-        <div className="overflow-x-auto border border-gray-200 rounded-2xl shadow-sm">
-          <table className="w-full text-sm table-fixed">
-            <thead>
-              <tr className="border-b border-gray-100 bg-gray-50/80">
-                <th style={{ width: COL_WIDTHS.department }} className="text-left text-[11px] font-bold text-gray-400 uppercase tracking-wider px-3 py-3">Department</th>
-                <th style={{ width: COL_WIDTHS.task }}       className="text-left text-[11px] font-bold text-gray-400 uppercase tracking-wider px-3 py-3">Task</th>
-                <th style={{ width: COL_WIDTHS.recurrence }} className="text-left text-[11px] font-bold text-gray-400 uppercase tracking-wider px-3 py-3">Recurrence</th>
-                <th style={{ width: COL_WIDTHS.status }}     className="text-left text-[11px] font-bold text-gray-400 uppercase tracking-wider px-3 py-3">Status</th>
-                <th style={{ width: COL_WIDTHS.assignee }}   className="text-left text-[11px] font-bold text-gray-400 uppercase tracking-wider px-3 py-3">Assignees</th>
-                <th style={{ width: COL_WIDTHS.deadline }}   className="text-left text-[11px] font-bold text-gray-400 uppercase tracking-wider px-3 py-3">Deadline</th>
-                <th style={{ width: COL_WIDTHS.priority }}   className="text-left text-[11px] font-bold text-gray-400 uppercase tracking-wider px-3 py-3">Priority</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((task, idx) => {
-                const statusCfg   = STATUS_CONFIG[task.status]     ?? STATUS_CONFIG['To Do'];
-                const priorityCfg = PRIORITY_CONFIG[task.priority] ?? PRIORITY_CONFIG.Low;
+      {/* Editable Table */}
+      <SpreadsheetTable
+        columns={columns}
+        data={filtered}
+        onAdd={handleAdd}
+        onUpdate={handleUpdate}
+        onDelete={handleDelete}
+        addLabel="Add Task"
+        loading={loading}
+      />
 
-                return (
-                  <tr
-                    key={task.id}
-                    className={`border-b border-gray-50 last:border-b-0 align-top hover:bg-blue-50/20 transition-colors ${
-                      idx % 2 === 1 ? 'bg-gray-50/40' : 'bg-white'
-                    }`}
-                  >
-                    <td className="px-3 py-2.5 text-gray-600 text-xs">
-                      <span className="block break-words whitespace-normal leading-snug">{task.dept_name}</span>
-                    </td>
-
-                    <td className="px-3 py-2.5 text-gray-900 text-xs font-medium">
-                      <span className="block break-words whitespace-pre-wrap leading-snug">{task.task}</span>
-                    </td>
-
-                    <td className="px-3 py-2.5">
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium border whitespace-nowrap ${RECURRENCE_COLORS[task.recurrence] ?? RECURRENCE_COLORS['One-Time']}`}>
-                        {task.recurrence ?? 'One-Time'}
-                      </span>
-                    </td>
-
-                    <td className="px-3 py-2.5">
-                      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border whitespace-nowrap ${statusCfg.cls}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusCfg.dot}`} />
-                        {task.status}
-                      </span>
-                    </td>
-
-                    {/* Assignees — read-only pills */}
-                    <td className="px-3 py-2.5">
-                      {task.assignees.length === 0 ? (
-                        <span className="text-gray-300 text-[11px]">—</span>
-                      ) : (
-                        <div className="flex flex-wrap gap-1">
-                          {task.assignees.map(name => (
-                            <span
-                              key={name}
-                              className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium leading-none ${avatarColor(name)}`}
-                            >
-                              <span className="max-w-[72px] truncate">{name.split(' ')[0]}</span>
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </td>
-
-                    <td className="px-3 py-2.5 text-gray-500 whitespace-nowrap text-xs">{task.deadline}</td>
-
-                    <td className="px-3 py-2.5">
-                      <span className={`inline-flex items-center gap-1.5 text-xs whitespace-nowrap ${priorityCfg.cls}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${priorityCfg.dot}`} />
-                        {priorityCfg.label}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <QuickAddModal open={showQuickAdd} onClose={() => { setShowQuickAdd(false); fetchTasks(); }} defaultType="task" />
     </div>
   );
 }
