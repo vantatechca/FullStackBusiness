@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { requireAuth, apiHandler } from '@/lib/api-auth';
 
+export const dynamic = 'force-dynamic';
+
 export const GET = apiHandler(async (req) => {
   await requireAuth();
   const deptId = new URL(req.url).searchParams.get('department_id');
