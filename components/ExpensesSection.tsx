@@ -12,10 +12,10 @@ import SpreadsheetTable from './SpreadsheetTable';
 import type { Expense, ColumnDef } from '@/lib/types';
 import { CURRENCIES } from '@/lib/types';
 
-const columns: ColumnDef[] = [
-  { key: 'date',        label: 'Date',        type: 'date',   width: '120px' },
-  { key: 'description', label: 'Description', type: 'text',   width: '180px' },
-  { key: 'category',    label: 'Category',    type: 'text',   width: '130px' },
+const BASE_COLUMNS: ColumnDef[] = [
+  { key: 'date',        label: 'Date',        type: 'date',       width: '120px' },
+  { key: 'description', label: 'Description', type: 'text',       width: '180px' },
+  { key: 'category',    label: 'Category',    type: 'combobox' as any, options: [], width: '130px' },
   { key: 'amount',      label: 'Amount',      type: 'number', width: '120px' },
   { key: 'currency',    label: 'Currency',    type: 'select', options: [...CURRENCIES], width: '100px' },
   { key: 'paid_by',     label: 'Paid By',     type: 'text',   width: '130px' },
@@ -36,6 +36,19 @@ export default function ExpensesSection({ departmentId }: { departmentId: string
 
   const totalUSD = data.reduce(
     (sum, e) => sum + convertToUSD(Number(e.amount) || 0, e.currency, rates), 0,
+  );
+
+  // Dynamic category options from existing data
+  const categoryOptions = useMemo(() => {
+    const unique = new Set(data.map(e => e.category?.trim()).filter(Boolean));
+    return Array.from(unique).sort();
+  }, [data]);
+
+  const columns = useMemo(() =>
+    BASE_COLUMNS.map(col =>
+      col.key === 'category' ? { ...col, options: categoryOptions } : col
+    ),
+    [categoryOptions],
   );
 
   // Analytics: by category

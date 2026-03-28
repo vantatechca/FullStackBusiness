@@ -416,6 +416,63 @@ const SelectCell = memo(function SelectCell({
   );
 });
 
+// ── Combobox cell — select from existing options or type a new one ───────────
+const ComboboxCell = memo(function ComboboxCell({
+  value,
+  options,
+  onCommit,
+}: {
+  value: string;
+  options: string[];
+  onCommit: (val: string) => void;
+}) {
+  const [local, setLocal] = useState(value ?? '');
+  const [isCustom, setIsCustom] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { setLocal(value ?? ''); setIsCustom(false); }, [value]);
+  useEffect(() => { if (isCustom && inputRef.current) inputRef.current.focus(); }, [isCustom]);
+
+  if (isCustom) {
+    return (
+      <input
+        ref={inputRef}
+        type="text"
+        value={local}
+        onChange={e => setLocal(e.target.value)}
+        onBlur={() => { onCommit(local); setIsCustom(false); }}
+        onKeyDown={e => { if (e.key === 'Enter') { onCommit(local); setIsCustom(false); } if (e.key === 'Escape') setIsCustom(false); }}
+        className="w-full px-2 py-1.5 text-sm border-0 bg-transparent rounded focus:ring-1 focus:ring-[#3b82f6] outline-none"
+        placeholder="Type new..."
+      />
+    );
+  }
+
+  // Include current value in options if it's not already there
+  const allOpts = options.includes(local) || !local ? options : [local, ...options];
+
+  return (
+    <select
+      value={local}
+      onChange={e => {
+        if (e.target.value === '__new__') {
+          setLocal('');
+          setIsCustom(true);
+        } else {
+          setLocal(e.target.value);
+          onCommit(e.target.value);
+        }
+      }}
+      className="w-full px-2 py-1.5 text-sm border-0 bg-transparent rounded focus:ring-1 focus:ring-[#3b82f6] outline-none cursor-pointer"
+    >
+      <option value="">—</option>
+      {allOpts.filter(Boolean).map(opt => (
+        <option key={opt} value={opt}>{opt}</option>
+      ))}
+      <option value="__new__">+ Add new...</option>
+    </select>
+  );
+});
+
 // ── Auto-resizing textarea ────────────────────────────────────────────────────
 const CellTextarea = memo(function CellTextarea({
   value,
@@ -538,6 +595,16 @@ const StableCell = memo(function StableCell({
   if (col.type === 'select') {
     return (
       <SelectCell
+        value={String(value ?? '')}
+        options={col.options ?? []}
+        onCommit={handleCommit as (val: string) => void}
+      />
+    );
+  }
+
+  if ((col.type as string) === 'combobox') {
+    return (
+      <ComboboxCell
         value={String(value ?? '')}
         options={col.options ?? []}
         onCommit={handleCommit as (val: string) => void}
