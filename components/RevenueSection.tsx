@@ -11,9 +11,9 @@ import SpreadsheetTable from './SpreadsheetTable';
 import type { Revenue, ColumnDef } from '@/lib/types';
 import { CURRENCIES } from '@/lib/types';
 
-const columns: ColumnDef[] = [
-  { key: 'date',     label: 'Date',     type: 'date',   width: '120px' },
-  { key: 'source',   label: 'Source',   type: 'text',   width: '160px' },
+const BASE_COLUMNS: ColumnDef[] = [
+  { key: 'date',     label: 'Date',     type: 'date',       width: '120px' },
+  { key: 'source',   label: 'Source',   type: 'combobox' as any, options: [], width: '160px' },
   { key: 'amount',   label: 'Amount',   type: 'number', width: '120px' },
   { key: 'currency', label: 'Currency', type: 'select', options: [...CURRENCIES], width: '100px' },
   { key: 'notes',    label: 'Notes',    type: 'text',   width: '200px' },
@@ -34,6 +34,19 @@ export default function RevenueSection({ departmentId }: { departmentId: string 
 
   const totalUSD = data.reduce(
     (sum, r) => sum + convertToUSD(Number(r.amount) || 0, r.currency, rates), 0,
+  );
+
+  // Dynamic source options from existing data
+  const sourceOptions = useMemo(() => {
+    const unique = new Set(data.map(r => r.source?.trim()).filter(Boolean));
+    return Array.from(unique).sort();
+  }, [data]);
+
+  const columns = useMemo(() =>
+    BASE_COLUMNS.map(col =>
+      col.key === 'source' ? { ...col, options: sourceOptions } : col
+    ),
+    [sourceOptions],
   );
 
   // Analytics: by source
