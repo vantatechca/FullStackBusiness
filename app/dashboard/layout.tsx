@@ -3,8 +3,9 @@
 
 import { useAuth } from '@/lib/auth-context';
 import { CurrencyProvider } from '@/lib/currency-context';
-import Sidebar from '@/components/Sidebar';  // match your exact filename casing
+import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
+import QuickAddButton from '@/components/QuickAddButton';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { profile, loading } = useAuth();
@@ -29,6 +30,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {children}
           </main>
         </div>
+        <QuickAddButton />
       </div>
     </CurrencyProvider>
   );

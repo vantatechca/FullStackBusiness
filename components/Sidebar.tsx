@@ -7,6 +7,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   PanelLeftClose, PanelLeft, Search, LogOut, Plus,
   MoreHorizontal, Pencil, Trash2, Check, X, GripVertical,
+  LayoutDashboard, CheckSquare, Wallet, Users, TrendingUp,
 } from 'lucide-react';
 import { DEPARTMENT_ICONS } from '@/lib/departments';
 import { useAuth } from '@/lib/auth-context';
@@ -244,8 +245,18 @@ export default function Sidebar() {
     saveTimer.current = setTimeout(() => persistOrder(next), 400);
   }, [persistOrder]);
 
+  // Top-level nav items (not department-bound)
+  const TOP_NAV = useMemo(() => [
+    { id: 'dashboard',        label: 'Dashboard',  icon: LayoutDashboard },
+    { id: 'tasks-daily-goals', label: 'All Tasks',  icon: CheckSquare     },
+    { id: 'expenses-global',  label: 'All Expenses', icon: Wallet         },
+    { id: 'team-members',     label: 'Team',       icon: Users           },
+    { id: 'net-profit',       label: 'Net Profit', icon: TrendingUp      },
+  ], []);
+
+  // Department items (only standard/gmb/influencers/restock types)
   const mainDepts = useMemo(() => departments.filter(d => {
-    if (d.id === 'admin') return false;
+    if (!['standard', 'gmb', 'influencers', 'restock'].includes(d.type)) return false;
     if (loading) return true;
     if (!canAccessDepartment(d.id)) return false;
     if (search && !d.name.toLowerCase().includes(search.toLowerCase())) return false;
@@ -343,6 +354,33 @@ export default function Sidebar() {
             </div>
           ) : (
             <>
+              {/* ── Top-level navigation ── */}
+              <div className="mb-1">
+                {!collapsed && <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-2.5 mb-1.5">Main</p>}
+                {TOP_NAV.map(item => {
+                  const active = isActive(item.id);
+                  const NavIcon = item.icon;
+                  return (
+                    <Link
+                      key={item.id}
+                      href={getHref(item.id)}
+                      title={collapsed ? item.label : undefined}
+                      className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm transition-colors mb-0.5 ${
+                        active ? 'bg-[#3b82f6] text-white' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      }`}
+                    >
+                      <NavIcon size={16} className={active ? 'text-white' : 'text-gray-400'} />
+                      {!collapsed && <span className="text-[13px] font-medium">{item.label}</span>}
+                    </Link>
+                  );
+                })}
+              </div>
+
+              {/* ── Departments section ── */}
+              <div className={`mt-2 mb-1.5 ${collapsed ? 'px-1' : 'px-2'}`}>
+                <div className="border-t border-gray-200" />
+                {!collapsed && <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest pt-2 px-0.5">Departments</p>}
+              </div>
               <div
                 ref={listRef}
                 className="relative"

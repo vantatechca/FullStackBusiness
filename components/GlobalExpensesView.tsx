@@ -1,16 +1,32 @@
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { format } from 'date-fns';
+import { Plus } from 'lucide-react';
 import { getDepartment } from '@/lib/departments';
 import { useCurrency } from '@/lib/currency-context';
+import { useAuth } from '@/lib/auth-context';
 import { convertToUSD } from '@/lib/exchange-rates';
-import type { Expense } from '@/lib/types';
+import SpreadsheetTable from './SpreadsheetTable';
+import QuickAddModal from './QuickAddModal';
+import type { Expense, ColumnDef } from '@/lib/types';
+import { CURRENCIES } from '@/lib/types';
+
+const columns: ColumnDef[] = [
+  { key: 'date',        label: 'Date',        type: 'date',   width: '120px' },
+  { key: 'description', label: 'Description', type: 'text',   width: '200px' },
+  { key: 'category',    label: 'Category',    type: 'text',   width: '130px' },
+  { key: 'amount',      label: 'Amount',      type: 'number', width: '120px' },
+  { key: 'currency',    label: 'Currency',    type: 'select', options: [...CURRENCIES], width: '100px' },
+  { key: 'paid_by',     label: 'Paid By',     type: 'text',   width: '130px' },
+];
 
 export default function GlobalExpensesView() {
   const [expenses, setExpenses] = useState<(Expense & { dept_name: string })[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
   const { formatDisplay, rates } = useCurrency();
+  const { profile } = useAuth();
 
   const fetchExpenses = useCallback(async () => {
     try {
@@ -19,10 +35,10 @@ export default function GlobalExpensesView() {
       const data = await res.json();
       setExpenses(
         [...data]
-          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-          .map(e => ({
+          .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          .map((e: any) => ({
             ...e,
-            dept_name: getDepartment(e.department_id)?.name || e.department_id,
+            dept_name: e.department_id ? (getDepartment(e.department_id)?.name || e.department_id) : 'General',
           }))
       );
     } catch (err) {
@@ -34,13 +50,8 @@ export default function GlobalExpensesView() {
 
   useEffect(() => {
     fetchExpenses();
-
-    // Poll every 30 seconds
     const interval = setInterval(fetchExpenses, 30000);
-
-    // Listen for updates from ExpensesSection
     window.addEventListener('expenses-updated', fetchExpenses);
-
     return () => {
       clearInterval(interval);
       window.removeEventListener('expenses-updated', fetchExpenses);
@@ -49,55 +60,85 @@ export default function GlobalExpensesView() {
 
   const totalUSD = expenses.reduce((sum, e) => sum + convertToUSD(Number(e.amount) || 0, e.currency, rates), 0);
 
-  if (loading) {
-    return <div className="space-y-2">{[...Array(5)].map((_, i) => <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />)}</div>;
-  }
+  const handleAdd = useCallback(async () => {
+    const tempId = `temp-${Date.now()}`;
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const optimistic = {
+      id: tempId, department_id: '',
+      date: today, description: '', category: '',
+      amount: 0, currency: 'USD', paid_by: '',
+      created_by: profile?.id ?? null, created_at: '',
+      dept_name: 'General',
+    } as any;
+
+    setExpenses(prev => [optimistic, ...prev]);
+
+    const res = await fetch('/api/expenses', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        department_id: null, date: today,
+        description: '', category: '', amount: 0,
+        currency: 'USD', paid_by: '',
+      }),
+    });
+
+    if (res.ok) {
+      const inserted = await res.json();
+      setExpenses(prev => prev.map(row => row.id === tempId ? { ...inserted, dept_name: 'General' } : row));
+    } else {
+      setExpenses(prev => prev.filter(row => row.id !== tempId));
+      await fetchExpenses();
+    }
+  }, [profile?.id, fetchExpenses]);
+
+  const handleUpdate = useCallback((id: string, key: string, value: string | number | string[]) => {
+    if (id.startsWith('temp-')) return;
+    setExpenses(prev => prev.map(row => row.id === id ? { ...row, [key]: value } : row));
+    fetch(`/api/expenses/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [key]: value }),
+    }).catch(() => fetchExpenses());
+  }, [fetchExpenses]);
+
+  const handleDelete = useCallback(async (id: string) => {
+    setExpenses(prev => prev.filter(row => row.id !== id));
+    await fetch(`/api/expenses/${id}`, { method: 'DELETE' });
+    window.dispatchEvent(new CustomEvent('expenses-updated'));
+  }, []);
 
   return (
-    <div>
-      <div className="mb-5">
-        <span className="text-lg font-bold text-[#ef4444]">
-          Total Expenses Across All Departments: {formatDisplay(totalUSD)}
-        </span>
+    <div className="space-y-5">
+      {/* Header with total and quick add */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <span className="text-lg font-bold text-[#ef4444]">
+            Total Expenses: {formatDisplay(totalUSD)}
+          </span>
+          <p className="text-xs text-gray-400 mt-0.5">{expenses.length} entries across all departments</p>
+        </div>
+        <button
+          onClick={() => setShowQuickAdd(true)}
+          className="flex items-center gap-1.5 px-3 py-2 bg-[#3b82f6] text-white text-sm font-medium rounded-lg hover:bg-[#2563eb] transition-colors shadow-sm"
+        >
+          <Plus size={14} />
+          Quick Add Expense
+        </button>
       </div>
 
-      {expenses.length === 0 ? (
-        <p className="text-center py-12 text-gray-400 text-sm">No expenses recorded yet.</p>
-      ) : (
-        <div className="overflow-x-auto border border-gray-200 rounded-lg">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b-2 border-gray-200">
-                {['Department', 'Date', 'Description', 'Category', 'Amount', 'Currency', 'Paid By'].map(h => (
-                  <th key={h} className="text-left text-[11px] font-bold text-[#475569] uppercase tracking-wider px-3 py-2.5 bg-gray-50/80">
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {expenses.map((exp, idx) => (
-                <tr key={exp.id} className={`border-b border-gray-100 ${idx % 2 === 1 ? 'bg-[#fafbfc]' : 'bg-white'}`}>
-                  <td className="px-3 py-2 text-gray-700">{exp.dept_name}</td>
-                  <td className="px-3 py-2 text-gray-600">{exp.date}</td>
-                  <td className="px-3 py-2 text-gray-900">{exp.description}</td>
-                  <td className="px-3 py-2 text-gray-600">{exp.category}</td>
-                  <td className="px-3 py-2 text-[#ef4444] font-medium">{Number(exp.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                  <td className="px-3 py-2 text-gray-500">{exp.currency}</td>
-                  <td className="px-3 py-2 text-gray-600">{exp.paid_by}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      {/* Editable Table */}
+      <SpreadsheetTable
+        columns={columns}
+        data={expenses}
+        onAdd={handleAdd}
+        onUpdate={handleUpdate}
+        onDelete={handleDelete}
+        addLabel="Add Expense"
+        loading={loading}
+      />
+
+      <QuickAddModal open={showQuickAdd} onClose={() => { setShowQuickAdd(false); fetchExpenses(); }} defaultType="expense" />
     </div>
   );
 }
-
-
-
-
-
-
-

@@ -6,7 +6,8 @@ import { DEPARTMENT_ICONS } from '@/lib/departments';
 import { useCurrency } from '@/lib/currency-context';
 import { convertToUSD } from '@/lib/exchange-rates';
 import type { Revenue, Expense, Task } from '@/lib/types';
-import { TrendingUp, TrendingDown, CheckCircle2, BarChart3, ArrowUpRight } from 'lucide-react';
+import { TrendingUp, TrendingDown, CheckCircle2, BarChart3, ArrowUpRight, Plus, CheckSquare, Wallet, Users } from 'lucide-react';
+import QuickAddModal from './QuickAddModal';
 
 interface Department {
   id: string;
@@ -20,6 +21,8 @@ export default function DashboardOverview() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [quickAddType, setQuickAddType] = useState<'task' | 'expense' | 'member'>('task');
   const { formatDisplay, rates } = useCurrency();
 
   useEffect(() => {
@@ -198,6 +201,32 @@ export default function DashboardOverview() {
         </div>
       </div>
 
+      {/* Quick Add Actions */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h3 className="font-semibold text-gray-900 text-sm">Quick Add</h3>
+            <p className="text-xs text-gray-400 mt-0.5">Create items from anywhere — department is optional</p>
+          </div>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          {[
+            { type: 'task' as const,    label: 'New Task',       icon: <CheckSquare size={15} />, cls: 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100' },
+            { type: 'expense' as const, label: 'New Expense',    icon: <Wallet size={15} />,      cls: 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'             },
+            { type: 'member' as const,  label: 'New Team Member', icon: <Users size={15} />,       cls: 'bg-violet-50 text-violet-700 border-violet-200 hover:bg-violet-100'     },
+          ].map(action => (
+            <button
+              key={action.type}
+              onClick={() => { setQuickAddType(action.type); setQuickAddOpen(true); }}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border transition-all ${action.cls}`}
+            >
+              {action.icon}
+              {action.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Department Performance */}
       <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
@@ -303,6 +332,8 @@ export default function DashboardOverview() {
           </div>
         )}
       </div>
+
+      <QuickAddModal open={quickAddOpen} onClose={() => setQuickAddOpen(false)} defaultType={quickAddType} />
     </div>
   );
 }
