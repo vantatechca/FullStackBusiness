@@ -1,11 +1,10 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import {
   ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, Clock, Circle, ListTodo,
 } from 'lucide-react';
-import { getDepartment } from '@/lib/departments';
 import { useAuth } from '@/lib/auth-context';
 import SpreadsheetTable from './SpreadsheetTable';
 import type { Task, ColumnDef } from '@/lib/types';
@@ -71,18 +70,29 @@ export default function GlobalTasksView() {
   const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
   const { profile } = useAuth();
 
+  const deptMapRef = useRef<Record<string, string>>({});
+
   const fetchTasks = useCallback(async () => {
     try {
+      // Fetch departments for name lookup if not yet loaded
+      if (Object.keys(deptMapRef.current).length === 0) {
+        const dRes = await fetch('/api/table-data?table=departments');
+        if (dRes.ok) {
+          const depts = await dRes.json();
+          if (Array.isArray(depts)) depts.forEach((d: any) => { deptMapRef.current[d.id] = d.name; });
+        }
+      }
+      const deptMap = deptMapRef.current;
       const res = await fetch('/api/table-data?table=tasks');
       if (!res.ok) throw new Error('Failed to fetch');
       const data = await res.json();
       setTasks(
-        [...data]
+        (Array.isArray(data) ? data : [])
           .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
           .map((t: any) => ({
             ...t,
             recurrence: t.recurrence ?? 'One-Time',
-            dept_name: t.department_id ? (getDepartment(t.department_id)?.name || t.department_id) : 'General',
+            dept_name: t.department_id ? (deptMap[t.department_id] || t.department_id) : 'General',
             assignees: parseAssignees(t.assignees ?? t.assignee),
           }))
       );

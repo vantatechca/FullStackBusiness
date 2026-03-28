@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
-import { getDepartment } from '@/lib/departments';
 import { useCurrency } from '@/lib/currency-context';
 import { useAuth } from '@/lib/auth-context';
 import { convertToUSD } from '@/lib/exchange-rates';
@@ -36,8 +35,15 @@ export default function GlobalExpensesView() {
   const { formatDisplay, rates } = useCurrency();
   const { profile } = useAuth();
 
+  const deptMapRef = useRef<Record<string, string>>({});
+
   const fetchExpenses = useCallback(async () => {
     try {
+      if (Object.keys(deptMapRef.current).length === 0) {
+        const dRes = await fetch('/api/table-data?table=departments');
+        if (dRes.ok) { const depts = await dRes.json(); if (Array.isArray(depts)) depts.forEach((d: any) => { deptMapRef.current[d.id] = d.name; }); }
+      }
+      const deptMap = deptMapRef.current;
       const res = await fetch('/api/table-data?table=expenses');
       if (!res.ok) throw new Error('Failed to fetch');
       const data = await res.json();
@@ -46,7 +52,7 @@ export default function GlobalExpensesView() {
           .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
           .map((e: any) => ({
             ...e,
-            dept_name: e.department_id ? (getDepartment(e.department_id)?.name || e.department_id) : 'General',
+            dept_name: e.department_id ? (deptMap[e.department_id] || e.department_id) : 'General',
           }))
       );
     } catch (err) {

@@ -2,34 +2,37 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { getStandardDepartments } from '@/lib/departments';
 import { useCurrency } from '@/lib/currency-context';
 import { convertToUSD } from '@/lib/exchange-rates';
 import type { Revenue, Expense, TeamMember } from '@/lib/types';
 import KPICard from './KPICard';
 
+interface Department { id: string; name: string; type: string; }
+
 export default function NetProfitView() {
   const [revenue, setRevenue] = useState<Revenue[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [members, setMembers] = useState<TeamMember[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const { formatDisplay, rates } = useCurrency();
 
   const fetchAll = useCallback(async () => {
     try {
-      const [revRes, expRes, memRes] = await Promise.all([
+      const [revRes, expRes, memRes, deptRes] = await Promise.all([
         fetch('/api/table-data?table=revenue'),
         fetch('/api/table-data?table=expenses'),
         fetch('/api/table-data?table=team_members'),
+        fetch('/api/table-data?table=departments'),
       ]);
-      const [revData, expData, memData] = await Promise.all([
-        revRes.json(),
-        expRes.json(),
-        memRes.json(),
+      const [revData, expData, memData, deptData] = await Promise.all([
+        revRes.json(), expRes.json(), memRes.json(), deptRes.json(),
       ]);
-      setRevenue(revData || []);
-      setExpenses(expData || []);
-      setMembers(memData || []);
+      setRevenue(Array.isArray(revData) ? revData : []);
+      setExpenses(Array.isArray(expData) ? expData : []);
+      setMembers(Array.isArray(memData) ? memData : []);
+      const DEPT_TYPES = ['standard', 'gmb', 'influencers', 'restock'];
+      setDepartments((Array.isArray(deptData) ? deptData : []).filter((d: any) => DEPT_TYPES.includes(d.type)));
     } catch (err) {
       console.error('Failed to fetch net profit data:', err);
     } finally {
@@ -44,8 +47,6 @@ export default function NetProfitView() {
   const totalRevUSD = revenue.reduce((s, r) => s + convertToUSD(Number(r.amount) || 0, r.currency, rates), 0);
   const totalExpUSD = expenses.reduce((s, e) => s + convertToUSD(Number(e.amount) || 0, e.currency, rates), 0);
   const netProfit = totalRevUSD - totalExpUSD;
-
-  const departments = getStandardDepartments();
 
   const deptBreakdown = departments.map(d => {
     const deptRev = revenue
