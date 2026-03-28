@@ -53,14 +53,16 @@ export const PATCH = apiHandler(async (req, { params }: { params: { id: string }
   const rows = await sql`
     UPDATE public.tasks
     SET
-      task        = COALESCE(${body.task        ?? null}, task),
-      recurrence  = COALESCE(${body.recurrence  ?? null}, recurrence),
-      status      = COALESCE(${body.status      ?? null}, status),
-      assignee    = COALESCE(${assignee},                 assignee),
-      assignees   = COALESCE(${assignees as any},         assignees),
-      deadline    = COALESCE(${body.deadline    ?? null}, deadline),
-      priority    = COALESCE(${body.priority    ?? null}, priority),
-      notes       = COALESCE(${body.notes       ?? null}, notes)
+      task          = COALESCE(${body.task          ?? null}, task),
+      recurrence    = COALESCE(${body.recurrence    ?? null}, recurrence),
+      status        = COALESCE(${body.status        ?? null}, status),
+      assignee      = COALESCE(${assignee},                   assignee),
+      assignees     = COALESCE(${assignees as any},           assignees),
+      deadline      = COALESCE(${body.deadline      ?? null}, deadline),
+      priority      = COALESCE(${body.priority      ?? null}, priority),
+      notes         = COALESCE(${body.notes         ?? null}, notes),
+      goal_target   = COALESCE(${body.goal_target   ?? null}, goal_target),
+      goal_current  = COALESCE(${body.goal_current  ?? null}, goal_current)
     WHERE id = ${params.id}
     RETURNING *
   `;
