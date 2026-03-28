@@ -10,7 +10,7 @@ export interface Department {
   id: string;
   name: string;
   icon: string;
-  type: 'overview' | 'standard' | 'gmb' | 'influencers' | 'restock' | 'team' | 'tasks' | 'expenses-global' | 'goals' | 'net-profit' | 'admin';
+  type: 'overview' | 'standard' | 'gmb' | 'influencers' | 'restock' | 'team' | 'tasks' | 'expenses-global' | 'revenue-global' | 'net-profit' | 'admin';
   sort_order: number;
 }
 
