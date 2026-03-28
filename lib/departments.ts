@@ -1,4 +1,4 @@
-import { ChartBar as BarChart3, ShoppingCart, Megaphone, Store, PenLine, Dice5, Headphones, CreditCard, MapPin, Users, Smartphone, Dna, Package, CircleUser as UserCircle, SquareCheck as CheckSquare, Wallet, TrendingUp, ShieldCheck, Target, DollarSign } from 'lucide-react';
+import { ChartBar as BarChart3, ShoppingCart, Megaphone, Store, PenLine, Dice5, Headphones, CreditCard, MapPin, Users, Smartphone, Dna, Package, CircleUser as UserCircle, SquareCheck as CheckSquare, Wallet, TrendingUp, ShieldCheck, DollarSign } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Department } from './types';
 
@@ -21,7 +21,6 @@ export const DEPARTMENT_ICONS: Record<string, LucideIcon> = {
   Wallet,
   TrendingUp,
   ShieldCheck,
-  Target,
   DollarSign,
 };
 
@@ -43,9 +42,8 @@ export const DEPARTMENTS: Department[] = [
   { id: 'tasks-daily-goals', name: 'Tasks & Daily Goals', icon: 'CheckSquare', type: 'tasks', sort_order: 15 },
   { id: 'revenue-global', name: 'Revenue (Global)', icon: 'DollarSign', type: 'revenue-global', sort_order: 16 },
   { id: 'expenses-global', name: 'Expenses (Global)', icon: 'Wallet', type: 'expenses-global', sort_order: 17 },
-  { id: 'goals', name: 'Goals & Targets', icon: 'Target', type: 'goals', sort_order: 17 },
   { id: 'net-profit', name: 'Net Profit', icon: 'TrendingUp', type: 'net-profit', sort_order: 18 },
-  { id: 'admin', name: 'Admin Panel', icon: 'ShieldCheck', type: 'admin', sort_order: 18 },
+  { id: 'admin', name: 'Admin Panel', icon: 'ShieldCheck', type: 'admin', sort_order: 19 },
 ];
 
 export function getDepartment(id: string): Department | undefined {

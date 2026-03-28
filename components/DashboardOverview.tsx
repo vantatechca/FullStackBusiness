@@ -7,11 +7,11 @@ import { DEPARTMENT_ICONS } from '@/lib/departments';
 import { useCurrency } from '@/lib/currency-context';
 import { useAuth } from '@/lib/auth-context';
 import { convertToUSD } from '@/lib/exchange-rates';
-import type { Revenue, Expense, Task, Goal } from '@/lib/types';
+import type { Revenue, Expense, Task } from '@/lib/types';
 import {
   TrendingUp, TrendingDown, BarChart3, ArrowUpRight, ArrowDownRight,
   Plus, CheckSquare, Wallet, Users, CheckCircle2, Clock, Circle,
-  Activity, DollarSign, Target, AlertTriangle,
+  Activity, DollarSign, AlertTriangle,
 } from 'lucide-react';
 import QuickAddModal from './QuickAddModal';
 
@@ -19,6 +19,7 @@ interface Department {
   id: string;
   name: string;
   icon: string;
+  type: string;
 }
 
 export default function DashboardOverview() {
@@ -26,7 +27,6 @@ export default function DashboardOverview() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [quickAddType, setQuickAddType] = useState<'task' | 'expense' | 'member'>('task');
@@ -49,15 +49,6 @@ export default function DashboardOverview() {
         setExpenses(Array.isArray(expData) ? expData : []);
         setTasks(Array.isArray(taskData) ? taskData : []);
         setDepartments(Array.isArray(deptData) ? deptData : []);
-
-        // Goals fetch is separate — table may not exist yet
-        try {
-          const goalsRes = await fetch('/api/goals');
-          if (goalsRes.ok) {
-            const goalsData = await goalsRes.json();
-            setGoals(Array.isArray(goalsData) ? goalsData : []);
-          }
-        } catch { /* goals table may not exist yet */ }
       } catch (err) {
         console.error('Failed to fetch dashboard data:', err);
       } finally {
@@ -77,7 +68,9 @@ export default function DashboardOverview() {
   const todoTasks = tasks.filter(t => t.status === 'To Do').length;
   const taskRate = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
 
-  const deptData = useMemo(() => departments.map(d => {
+  // Only show actual business departments (not system pages like Dashboard, Admin, etc.)
+  const DEPT_TYPES = ['standard', 'gmb', 'influencers', 'restock'];
+  const deptData = useMemo(() => departments.filter(d => DEPT_TYPES.includes(d.type)).map(d => {
     const deptRev = revenue
       .filter(r => r.department_id === d.id)
       .reduce((s, r) => s + convertToUSD(Number(r.amount) || 0, r.currency, rates), 0);
@@ -111,15 +104,6 @@ export default function DashboardOverview() {
       .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
       .slice(0, 8);
   }, [tasks, expenses, rates, formatDisplay]);
-
-  // Active goals with percentage from stored values
-  const activeGoals = useMemo(() => {
-    return goals.filter(g => g.status === 'active').map(goal => {
-      const current = Number(goal.current_value) || 0;
-      const pct = goal.target_value > 0 ? Math.min(Math.round((current / goal.target_value) * 100), 100) : 0;
-      return { ...goal, current_value: current, pct };
-    }).slice(0, 4);
-  }, [goals]);
 
   // Stagnant task alerts: tasks with a goal_target > 0 but goal_current is 0 or < 25%
   const stagnantTasks = useMemo(() => {
@@ -293,43 +277,6 @@ export default function DashboardOverview() {
           </div>
         </div>
       </div>
-
-      {/* ── Active Goals Progress ── */}
-      {activeGoals.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Target size={16} className="text-[#3b82f6]" />
-              <h3 className="font-semibold text-gray-900 text-sm">Active Goals</h3>
-            </div>
-            <a href="/dashboard/goals" className="text-xs text-[#3b82f6] hover:underline font-medium">View all</a>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-px bg-gray-100">
-            {activeGoals.map(goal => {
-              const pctColor = goal.pct >= 100 ? 'bg-emerald-500' : goal.pct >= 50 ? 'bg-blue-500' : goal.pct >= 25 ? 'bg-amber-500' : 'bg-gray-300';
-              return (
-                <div key={goal.id} className="bg-white px-5 py-4">
-                  <p className="text-sm font-medium text-gray-700 truncate mb-1">{goal.title}</p>
-                  <div className="flex items-end justify-between mb-2">
-                    <span className="text-lg font-bold text-gray-900 tabular-nums">
-                      {goal.current_value.toLocaleString()}
-                    </span>
-                    <span className={`text-sm font-bold tabular-nums ${goal.pct >= 100 ? 'text-emerald-600' : goal.pct >= 50 ? 'text-blue-600' : 'text-gray-400'}`}>
-                      {goal.pct}%
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                    <div className={`h-full rounded-full transition-all duration-700 ${pctColor}`} style={{ width: `${goal.pct}%` }} />
-                  </div>
-                  <p className="text-[11px] text-gray-400 mt-1.5">
-                    Target: {goal.target_value.toLocaleString()}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* ── Stagnant Tasks Alert ── */}
       {stagnantTasks.length > 0 && (
