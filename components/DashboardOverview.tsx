@@ -7,11 +7,11 @@ import { DEPARTMENT_ICONS } from '@/lib/departments';
 import { useCurrency } from '@/lib/currency-context';
 import { useAuth } from '@/lib/auth-context';
 import { convertToUSD } from '@/lib/exchange-rates';
-import type { Revenue, Expense, Task } from '@/lib/types';
+import type { Revenue, Expense, Task, Goal } from '@/lib/types';
 import {
   TrendingUp, TrendingDown, BarChart3, ArrowUpRight, ArrowDownRight,
   Plus, CheckSquare, Wallet, Users, CheckCircle2, Clock, Circle,
-  Activity, DollarSign,
+  Activity, DollarSign, Target,
 } from 'lucide-react';
 import QuickAddModal from './QuickAddModal';
 
@@ -26,6 +26,7 @@ export default function DashboardOverview() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [quickAddType, setQuickAddType] = useState<'task' | 'expense' | 'member'>('task');
@@ -35,19 +36,21 @@ export default function DashboardOverview() {
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        const [revRes, expRes, taskRes, deptRes] = await Promise.all([
+        const [revRes, expRes, taskRes, deptRes, goalsRes] = await Promise.all([
           fetch('/api/table-data?table=revenue'),
           fetch('/api/table-data?table=expenses'),
           fetch('/api/table-data?table=tasks'),
           fetch('/api/table-data?table=departments'),
+          fetch('/api/goals'),
         ]);
-        const [revData, expData, taskData, deptData] = await Promise.all([
-          revRes.json(), expRes.json(), taskRes.json(), deptRes.json(),
+        const [revData, expData, taskData, deptData, goalsData] = await Promise.all([
+          revRes.json(), expRes.json(), taskRes.json(), deptRes.json(), goalsRes.json(),
         ]);
         setRevenue(revData || []);
         setExpenses(expData || []);
         setTasks(taskData || []);
         setDepartments(deptData || []);
+        setGoals(goalsData || []);
       } catch (err) {
         console.error('Failed to fetch dashboard data:', err);
       } finally {
@@ -101,6 +104,35 @@ export default function DashboardOverview() {
       .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
       .slice(0, 8);
   }, [tasks, expenses, rates, formatDisplay]);
+
+  // Active goals with auto-calculated progress
+  const activeGoals = useMemo(() => {
+    return goals.filter(g => g.status === 'active').map(goal => {
+      let currentValue = goal.current_value;
+      if (goal.type === 'revenue') {
+        const filtered = goal.department_id ? revenue.filter(r => r.department_id === goal.department_id) : revenue;
+        const dateFiltered = filtered.filter(r => {
+          if (goal.start_date && r.date && r.date < goal.start_date) return false;
+          if (goal.end_date && r.date && r.date > goal.end_date) return false;
+          return true;
+        });
+        currentValue = dateFiltered.reduce((s, r) => s + convertToUSD(Number(r.amount) || 0, r.currency, rates), 0);
+      } else if (goal.type === 'expense') {
+        const filtered = goal.department_id ? expenses.filter(e => e.department_id === goal.department_id) : expenses;
+        const dateFiltered = filtered.filter(e => {
+          if (goal.start_date && e.date && e.date < goal.start_date) return false;
+          if (goal.end_date && e.date && e.date > goal.end_date) return false;
+          return true;
+        });
+        currentValue = dateFiltered.reduce((s, e) => s + convertToUSD(Number(e.amount) || 0, e.currency, rates), 0);
+      } else if (goal.type === 'task') {
+        const filtered = goal.department_id ? tasks.filter(t => t.department_id === goal.department_id) : tasks;
+        currentValue = filtered.filter(t => t.status === 'Done').length;
+      }
+      const pct = goal.target_value > 0 ? Math.min(Math.round((currentValue / goal.target_value) * 100), 100) : 0;
+      return { ...goal, current_value: currentValue, pct };
+    }).slice(0, 4);
+  }, [goals, revenue, expenses, tasks, rates]);
 
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
@@ -250,6 +282,43 @@ export default function DashboardOverview() {
           </div>
         </div>
       </div>
+
+      {/* ── Active Goals Progress ── */}
+      {activeGoals.length > 0 && (
+        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Target size={16} className="text-[#3b82f6]" />
+              <h3 className="font-semibold text-gray-900 text-sm">Active Goals</h3>
+            </div>
+            <a href="/dashboard/goals" className="text-xs text-[#3b82f6] hover:underline font-medium">View all</a>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-px bg-gray-100">
+            {activeGoals.map(goal => {
+              const pctColor = goal.pct >= 100 ? 'bg-emerald-500' : goal.pct >= 50 ? 'bg-blue-500' : goal.pct >= 25 ? 'bg-amber-500' : 'bg-gray-300';
+              return (
+                <div key={goal.id} className="bg-white px-5 py-4">
+                  <p className="text-sm font-medium text-gray-700 truncate mb-1">{goal.title}</p>
+                  <div className="flex items-end justify-between mb-2">
+                    <span className="text-lg font-bold text-gray-900 tabular-nums">
+                      {goal.type === 'task' ? goal.current_value : formatDisplay(goal.current_value)}
+                    </span>
+                    <span className={`text-sm font-bold tabular-nums ${goal.pct >= 100 ? 'text-emerald-600' : goal.pct >= 50 ? 'text-blue-600' : 'text-gray-400'}`}>
+                      {goal.pct}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                    <div className={`h-full rounded-full transition-all duration-700 ${pctColor}`} style={{ width: `${goal.pct}%` }} />
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-1.5">
+                    Target: {goal.type === 'task' ? `${goal.target_value} tasks` : formatDisplay(goal.target_value)}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ── Main Content: Department Performance + Recent Activity ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

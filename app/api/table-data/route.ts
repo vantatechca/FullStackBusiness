@@ -22,6 +22,7 @@ export const GET = apiHandler(async (req) => {
     'revenue', 'expenses', 'tasks', 'department_notes',
     'gmb_listings', 'influencers', 'suppliers', 'team_members',
     'department_team_members', 'exchange_rates', 'departments', 'profiles',
+    'goals',
   ];
 
   if (!allowedTables.includes(table)) {
@@ -69,6 +70,8 @@ export const GET = apiHandler(async (req) => {
       rows = await sql`SELECT id, email, full_name, role, created_at FROM public.profiles ORDER BY created_at ASC`;
     } else if (table === 'department_notes') {
       rows = await sql`SELECT * FROM public.department_notes ORDER BY updated_at DESC`;
+    } else if (table === 'goals') {
+      rows = await sql`SELECT * FROM public.goals ORDER BY created_at DESC`;
     } else {
       rows = [];
     }
