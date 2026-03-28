@@ -4,13 +4,11 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { format } from 'date-fns';
 import {
   Target, Plus, X, ChevronDown, Trash2, TrendingUp,
-  DollarSign, CheckSquare, Star, AlertCircle, CheckCircle2,
+  DollarSign, CheckSquare, Star, CheckCircle2,
   Pencil,
 } from 'lucide-react';
-import { useCurrency } from '@/lib/currency-context';
-import { convertToUSD } from '@/lib/exchange-rates';
 import { CURRENCIES } from '@/lib/types';
-import type { Goal, Revenue, Expense, Task } from '@/lib/types';
+import type { Goal } from '@/lib/types';
 
 interface Department {
   id: string;
@@ -38,12 +36,6 @@ export default function GoalsView({ departmentId }: { departmentId?: string }) {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [filter, setFilter] = useState<'all' | 'active' | 'completed' | 'missed'>('all');
 
-  // Live data for auto-calculating progress
-  const [liveRevenue, setLiveRevenue] = useState<Revenue[]>([]);
-  const [liveExpenses, setLiveExpenses] = useState<Expense[]>([]);
-  const [liveTasks, setLiveTasks] = useState<Task[]>([]);
-
-  const { formatDisplay, rates } = useCurrency();
 
   // Form state
   const [formTitle, setFormTitle] = useState('');
@@ -63,7 +55,10 @@ export default function GoalsView({ departmentId }: { departmentId?: string }) {
     try {
       const url = departmentId ? `/api/goals?deptId=${departmentId}` : '/api/goals';
       const res = await fetch(url);
-      if (res.ok) setGoals(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        setGoals(Array.isArray(data) ? data : []);
+      }
     } catch (err) {
       console.error('Failed to fetch goals:', err);
     } finally {
@@ -71,22 +66,8 @@ export default function GoalsView({ departmentId }: { departmentId?: string }) {
     }
   }, [departmentId]);
 
-  const fetchLiveData = useCallback(async () => {
-    try {
-      const [revRes, expRes, taskRes] = await Promise.all([
-        fetch('/api/table-data?table=revenue'),
-        fetch('/api/table-data?table=expenses'),
-        fetch('/api/table-data?table=tasks'),
-      ]);
-      if (revRes.ok) setLiveRevenue(await revRes.json());
-      if (expRes.ok) setLiveExpenses(await expRes.json());
-      if (taskRes.ok) setLiveTasks(await taskRes.json());
-    } catch { /* silent */ }
-  }, []);
-
   useEffect(() => {
     fetchGoals();
-    fetchLiveData();
     fetch('/api/departments').then(r => r.json()).then(d => {
       setDepartments((d || []).filter((dept: any) =>
         ['standard', 'gmb', 'influencers', 'restock'].includes(dept.type)
@@ -94,42 +75,14 @@ export default function GoalsView({ departmentId }: { departmentId?: string }) {
     }).catch(() => {});
   }, [fetchGoals, fetchLiveData]);
 
-  // Auto-calculate current_value for revenue/expense/task goals
+  // Calculate percentage from stored current_value (manually updated by user)
   const goalsWithProgress = useMemo(() => {
     return goals.map(goal => {
-      let autoValue = goal.current_value;
-
-      if (goal.type === 'revenue') {
-        const filtered = goal.department_id
-          ? liveRevenue.filter(r => r.department_id === goal.department_id)
-          : liveRevenue;
-        const dateFiltered = filtered.filter(r => {
-          if (goal.start_date && r.date && r.date < goal.start_date) return false;
-          if (goal.end_date && r.date && r.date > goal.end_date) return false;
-          return true;
-        });
-        autoValue = dateFiltered.reduce((s, r) => s + convertToUSD(Number(r.amount) || 0, r.currency, rates), 0);
-      } else if (goal.type === 'expense') {
-        const filtered = goal.department_id
-          ? liveExpenses.filter(e => e.department_id === goal.department_id)
-          : liveExpenses;
-        const dateFiltered = filtered.filter(e => {
-          if (goal.start_date && e.date && e.date < goal.start_date) return false;
-          if (goal.end_date && e.date && e.date > goal.end_date) return false;
-          return true;
-        });
-        autoValue = dateFiltered.reduce((s, e) => s + convertToUSD(Number(e.amount) || 0, e.currency, rates), 0);
-      } else if (goal.type === 'task') {
-        const filtered = goal.department_id
-          ? liveTasks.filter(t => t.department_id === goal.department_id)
-          : liveTasks;
-        autoValue = filtered.filter(t => t.status === 'Done').length;
-      }
-
-      const pct = goal.target_value > 0 ? Math.min(Math.round((autoValue / goal.target_value) * 100), 100) : 0;
-      return { ...goal, current_value: autoValue, pct };
+      const current = Number(goal.current_value) || 0;
+      const pct = goal.target_value > 0 ? Math.min(Math.round((current / goal.target_value) * 100), 100) : 0;
+      return { ...goal, current_value: current, pct };
     });
-  }, [goals, liveRevenue, liveExpenses, liveTasks, rates]);
+  }, [goals]);
 
   const filteredGoals = filter === 'all' ? goalsWithProgress : goalsWithProgress.filter(g => g.status === filter);
 
@@ -173,7 +126,7 @@ export default function GoalsView({ departmentId }: { departmentId?: string }) {
       title: formTitle.trim(),
       type: formType,
       target_value: Number(formTarget),
-      current_value: formType === 'custom' ? Number(formCurrent) || 0 : 0,
+      current_value: Number(formCurrent) || 0,
       currency: formCurrency,
       department_id: formDeptId || null,
       period: formPeriod,
@@ -290,7 +243,6 @@ export default function GoalsView({ departmentId }: { departmentId?: string }) {
           {filteredGoals.map(goal => {
             const typeCfg = TYPE_CONFIG[goal.type] || TYPE_CONFIG.custom;
             const statusCfg = STATUS_CONFIG[goal.status] || STATUS_CONFIG.active;
-            const isAutoTracked = goal.type !== 'custom';
             const pctColor = goal.pct >= 100 ? 'bg-emerald-500' : goal.pct >= 50 ? 'bg-blue-500' : goal.pct >= 25 ? 'bg-amber-500' : 'bg-gray-300';
             const deptName = goal.department_id
               ? departments.find(d => d.id === goal.department_id)?.name || goal.department_id
@@ -327,18 +279,8 @@ export default function GoalsView({ departmentId }: { departmentId?: string }) {
                 <div className="mt-auto">
                   <div className="flex items-end justify-between mb-2">
                     <div>
-                      <p className="text-xl font-bold text-gray-900 tabular-nums">
-                        {goal.type === 'task'
-                          ? goal.current_value
-                          : formatDisplay(goal.current_value)
-                        }
-                      </p>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        of {goal.type === 'task'
-                          ? `${goal.target_value} tasks`
-                          : formatDisplay(goal.target_value)
-                        }
-                      </p>
+                      <p className="text-xl font-bold text-gray-900 tabular-nums">{goal.current_value.toLocaleString()}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">of {goal.target_value.toLocaleString()}</p>
                     </div>
                     <span className={`text-lg font-bold tabular-nums ${
                       goal.pct >= 100 ? 'text-emerald-600' : goal.pct >= 50 ? 'text-blue-600' : 'text-gray-500'
@@ -360,29 +302,31 @@ export default function GoalsView({ departmentId }: { departmentId?: string }) {
                     </p>
                   )}
 
-                  {/* Custom goal: manual update input */}
-                  {!isAutoTracked && goal.status === 'active' && (
-                    <div className="mt-3 flex items-center gap-2">
-                      <input
-                        type="number"
-                        defaultValue={goal.current_value}
-                        onBlur={e => {
-                          const v = Number(e.target.value);
-                          if (!isNaN(v)) handleUpdateCurrent(goal.id, v);
-                        }}
-                        className="w-24 px-2 py-1.5 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-[#3b82f6] outline-none"
-                        placeholder="Progress"
-                      />
-                      <span className="text-[11px] text-gray-400">Update progress</span>
+                  {/* Update progress — available on ALL active goals */}
+                  {goal.status === 'active' && (
+                    <div className="mt-3 pt-3 border-t border-gray-100">
+                      <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">Update Progress</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          key={`progress-${goal.id}-${goal.current_value}`}
+                          defaultValue={goal.current_value}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              const v = Number((e.target as HTMLInputElement).value);
+                              if (!isNaN(v)) handleUpdateCurrent(goal.id, v);
+                            }
+                          }}
+                          onBlur={e => {
+                            const v = Number(e.target.value);
+                            if (!isNaN(v) && v !== goal.current_value) handleUpdateCurrent(goal.id, v);
+                          }}
+                          className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm font-medium focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] outline-none tabular-nums"
+                          min="0"
+                        />
+                        <span className="text-sm text-gray-400 shrink-0">/ {goal.target_value.toLocaleString()}</span>
+                      </div>
                     </div>
-                  )}
-
-                  {/* Auto-tracked badge */}
-                  {isAutoTracked && (
-                    <p className="text-[10px] text-blue-500 font-medium mt-2 flex items-center gap-1">
-                      <AlertCircle size={10} />
-                      Auto-tracked from {goal.type} data
-                    </p>
                   )}
 
                   {/* Status actions */}
@@ -458,25 +402,13 @@ export default function GoalsView({ departmentId }: { departmentId?: string }) {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                    Target {formType === 'task' ? '(# of tasks)' : 'Amount'} *
-                  </label>
-                  <input type="number" value={formTarget} onChange={e => setFormTarget(e.target.value)} placeholder="0" min="0" step={formType === 'task' ? '1' : '0.01'} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#3b82f6] outline-none" />
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Target *</label>
+                  <input type="number" value={formTarget} onChange={e => setFormTarget(e.target.value)} placeholder="e.g. 600" min="0" className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#3b82f6] outline-none" />
                 </div>
-                {formType === 'custom' && (
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Current Progress</label>
-                    <input type="number" value={formCurrent} onChange={e => setFormCurrent(e.target.value)} placeholder="0" min="0" className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#3b82f6] outline-none" />
-                  </div>
-                )}
-                {formType !== 'custom' && formType !== 'task' && (
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Currency</label>
-                    <select value={formCurrency} onChange={e => setFormCurrency(e.target.value)} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#3b82f6] outline-none appearance-none bg-white">
-                      {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                  </div>
-                )}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Current Progress</label>
+                  <input type="number" value={formCurrent} onChange={e => setFormCurrent(e.target.value)} placeholder="e.g. 250" min="0" className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#3b82f6] outline-none" />
+                </div>
               </div>
 
               <div>
@@ -507,12 +439,6 @@ export default function GoalsView({ departmentId }: { departmentId?: string }) {
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Notes</label>
                 <textarea value={formNotes} onChange={e => setFormNotes(e.target.value)} placeholder="Additional context..." rows={2} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#3b82f6] outline-none resize-none" />
               </div>
-
-              {formType !== 'custom' && (
-                <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2.5 text-xs text-blue-600">
-                  Progress for <strong>{formType}</strong> goals is automatically calculated from your {formType} data{formDeptId ? ' within the selected department' : ' across all departments'}.
-                </div>
-              )}
 
               {formError && (
                 <div className="px-3 py-2.5 bg-red-50 border border-red-100 rounded-lg text-sm text-red-600 font-medium">{formError}</div>

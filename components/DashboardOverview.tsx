@@ -36,21 +36,28 @@ export default function DashboardOverview() {
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        const [revRes, expRes, taskRes, deptRes, goalsRes] = await Promise.all([
+        const [revRes, expRes, taskRes, deptRes] = await Promise.all([
           fetch('/api/table-data?table=revenue'),
           fetch('/api/table-data?table=expenses'),
           fetch('/api/table-data?table=tasks'),
           fetch('/api/table-data?table=departments'),
-          fetch('/api/goals'),
         ]);
-        const [revData, expData, taskData, deptData, goalsData] = await Promise.all([
-          revRes.json(), expRes.json(), taskRes.json(), deptRes.json(), goalsRes.json(),
+        const [revData, expData, taskData, deptData] = await Promise.all([
+          revRes.json(), expRes.json(), taskRes.json(), deptRes.json(),
         ]);
-        setRevenue(revData || []);
-        setExpenses(expData || []);
-        setTasks(taskData || []);
-        setDepartments(deptData || []);
-        setGoals(goalsData || []);
+        setRevenue(Array.isArray(revData) ? revData : []);
+        setExpenses(Array.isArray(expData) ? expData : []);
+        setTasks(Array.isArray(taskData) ? taskData : []);
+        setDepartments(Array.isArray(deptData) ? deptData : []);
+
+        // Goals fetch is separate — table may not exist yet
+        try {
+          const goalsRes = await fetch('/api/goals');
+          if (goalsRes.ok) {
+            const goalsData = await goalsRes.json();
+            setGoals(Array.isArray(goalsData) ? goalsData : []);
+          }
+        } catch { /* goals table may not exist yet */ }
       } catch (err) {
         console.error('Failed to fetch dashboard data:', err);
       } finally {
@@ -105,34 +112,14 @@ export default function DashboardOverview() {
       .slice(0, 8);
   }, [tasks, expenses, rates, formatDisplay]);
 
-  // Active goals with auto-calculated progress
+  // Active goals with percentage from stored values
   const activeGoals = useMemo(() => {
     return goals.filter(g => g.status === 'active').map(goal => {
-      let currentValue = goal.current_value;
-      if (goal.type === 'revenue') {
-        const filtered = goal.department_id ? revenue.filter(r => r.department_id === goal.department_id) : revenue;
-        const dateFiltered = filtered.filter(r => {
-          if (goal.start_date && r.date && r.date < goal.start_date) return false;
-          if (goal.end_date && r.date && r.date > goal.end_date) return false;
-          return true;
-        });
-        currentValue = dateFiltered.reduce((s, r) => s + convertToUSD(Number(r.amount) || 0, r.currency, rates), 0);
-      } else if (goal.type === 'expense') {
-        const filtered = goal.department_id ? expenses.filter(e => e.department_id === goal.department_id) : expenses;
-        const dateFiltered = filtered.filter(e => {
-          if (goal.start_date && e.date && e.date < goal.start_date) return false;
-          if (goal.end_date && e.date && e.date > goal.end_date) return false;
-          return true;
-        });
-        currentValue = dateFiltered.reduce((s, e) => s + convertToUSD(Number(e.amount) || 0, e.currency, rates), 0);
-      } else if (goal.type === 'task') {
-        const filtered = goal.department_id ? tasks.filter(t => t.department_id === goal.department_id) : tasks;
-        currentValue = filtered.filter(t => t.status === 'Done').length;
-      }
-      const pct = goal.target_value > 0 ? Math.min(Math.round((currentValue / goal.target_value) * 100), 100) : 0;
-      return { ...goal, current_value: currentValue, pct };
+      const current = Number(goal.current_value) || 0;
+      const pct = goal.target_value > 0 ? Math.min(Math.round((current / goal.target_value) * 100), 100) : 0;
+      return { ...goal, current_value: current, pct };
     }).slice(0, 4);
-  }, [goals, revenue, expenses, tasks, rates]);
+  }, [goals]);
 
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
@@ -301,7 +288,7 @@ export default function DashboardOverview() {
                   <p className="text-sm font-medium text-gray-700 truncate mb-1">{goal.title}</p>
                   <div className="flex items-end justify-between mb-2">
                     <span className="text-lg font-bold text-gray-900 tabular-nums">
-                      {goal.type === 'task' ? goal.current_value : formatDisplay(goal.current_value)}
+                      {goal.current_value.toLocaleString()}
                     </span>
                     <span className={`text-sm font-bold tabular-nums ${goal.pct >= 100 ? 'text-emerald-600' : goal.pct >= 50 ? 'text-blue-600' : 'text-gray-400'}`}>
                       {goal.pct}%
@@ -311,7 +298,7 @@ export default function DashboardOverview() {
                     <div className={`h-full rounded-full transition-all duration-700 ${pctColor}`} style={{ width: `${goal.pct}%` }} />
                   </div>
                   <p className="text-[11px] text-gray-400 mt-1.5">
-                    Target: {goal.type === 'task' ? `${goal.target_value} tasks` : formatDisplay(goal.target_value)}
+                    Target: {goal.target_value.toLocaleString()}
                   </p>
                 </div>
               );
