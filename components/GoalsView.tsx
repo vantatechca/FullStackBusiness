@@ -73,7 +73,7 @@ export default function GoalsView({ departmentId }: { departmentId?: string }) {
         ['standard', 'gmb', 'influencers', 'restock'].includes(dept.type)
       ));
     }).catch(() => {});
-  }, [fetchGoals, fetchLiveData]);
+  }, [fetchGoals]);
 
   // Calculate percentage from stored current_value (manually updated by user)
   const goalsWithProgress = useMemo(() => {
