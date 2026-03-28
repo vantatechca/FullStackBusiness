@@ -7,7 +7,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   PanelLeftClose, PanelLeft, Search, LogOut, Plus,
   MoreHorizontal, Pencil, Trash2, Check, X, GripVertical,
-  LayoutDashboard, CheckSquare, Wallet, Users, TrendingUp,
+  LayoutDashboard, CheckSquare, Wallet, Users, TrendingUp, Target,
 } from 'lucide-react';
 import { DEPARTMENT_ICONS } from '@/lib/departments';
 import { useAuth } from '@/lib/auth-context';
@@ -251,6 +251,7 @@ export default function Sidebar() {
     { id: 'tasks-daily-goals', label: 'All Tasks',  icon: CheckSquare     },
     { id: 'expenses-global',  label: 'All Expenses', icon: Wallet         },
     { id: 'team-members',     label: 'Team',       icon: Users           },
+    { id: 'goals',            label: 'Goals',      icon: Target          },
     { id: 'net-profit',       label: 'Net Profit', icon: TrendingUp      },
   ], []);
 

@@ -82,6 +82,7 @@ import GlobalTasksView from '@/components/GlobalTasksView';
 import GlobalExpensesView from '@/components/GlobalExpensesView';
 import NetProfitView from '@/components/NetProfitView';
 import AdminPanel from '@/components/AdminPanel';
+import GoalsView from '@/components/GoalsView';
 
 interface Department {
   id: string;
@@ -170,6 +171,8 @@ export default function DepartmentPage({ params }: { params: { deptId: string } 
       return <GlobalTasksView />;
     case 'expenses-global':
       return <GlobalExpensesView />;
+    case 'goals':
+      return <GoalsView />;
     case 'net-profit':
       return <NetProfitView />;
     case 'admin':

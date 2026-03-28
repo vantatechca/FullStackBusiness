@@ -6,12 +6,14 @@ import RevenueSection from './RevenueSection';
 import ExpensesSection from './ExpensesSection';
 import TasksSection from './TasksSection';
 import NotesSection from './NotesSection';
+import GoalsView from './GoalsView';
 
 const TABS = [
   { id: 'team', label: 'Team' },
   { id: 'revenue', label: 'Revenue' },
   { id: 'expenses', label: 'Expenses' },
   { id: 'tasks', label: 'Tasks' },
+  { id: 'goals', label: 'Goals' },
   { id: 'notes', label: 'Notes' },
 ];
 
@@ -24,6 +26,7 @@ export default function StandardDepartment({ departmentId }: { departmentId: str
           {activeTab === 'revenue' && <RevenueSection departmentId={departmentId} />}
           {activeTab === 'expenses' && <ExpensesSection departmentId={departmentId} />}
           {activeTab === 'tasks' && <TasksSection departmentId={departmentId} />}
+          {activeTab === 'goals' && <GoalsView departmentId={departmentId} />}
           {activeTab === 'notes' && <NotesSection departmentId={departmentId} />}
         </>
       )}

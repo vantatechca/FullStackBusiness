@@ -10,7 +10,7 @@ export interface Department {
   id: string;
   name: string;
   icon: string;
-  type: 'overview' | 'standard' | 'gmb' | 'influencers' | 'restock' | 'team' | 'tasks' | 'expenses-global' | 'net-profit' | 'admin';
+  type: 'overview' | 'standard' | 'gmb' | 'influencers' | 'restock' | 'team' | 'tasks' | 'expenses-global' | 'goals' | 'net-profit' | 'admin';
   sort_order: number;
 }
 
@@ -136,6 +136,23 @@ export interface ExchangeRates {
   base_currency: string;
   rates: Record<string, number>;
   last_updated: string;
+}
+
+export interface Goal {
+  id: string;
+  title: string;
+  type: 'revenue' | 'expense' | 'task' | 'custom';
+  target_value: number;
+  current_value: number;
+  currency: string;
+  department_id: string | null;
+  period: 'weekly' | 'monthly' | 'quarterly' | 'yearly' | 'custom';
+  start_date: string;
+  end_date: string;
+  status: 'active' | 'completed' | 'missed';
+  notes: string;
+  created_by: string | null;
+  created_at: string;
 }
 
 export type ColumnType = 'text' | 'number' | 'select' | 'multi-select' | 'date';
