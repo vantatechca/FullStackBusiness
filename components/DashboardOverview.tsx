@@ -1,12 +1,18 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
 import { DEPARTMENT_ICONS } from '@/lib/departments';
 import { useCurrency } from '@/lib/currency-context';
+import { useAuth } from '@/lib/auth-context';
 import { convertToUSD } from '@/lib/exchange-rates';
 import type { Revenue, Expense, Task } from '@/lib/types';
-import { TrendingUp, TrendingDown, CheckCircle2, BarChart3, ArrowUpRight, Plus, CheckSquare, Wallet, Users } from 'lucide-react';
+import {
+  TrendingUp, TrendingDown, BarChart3, ArrowUpRight, ArrowDownRight,
+  Plus, CheckSquare, Wallet, Users, CheckCircle2, Clock, Circle,
+  Activity, DollarSign,
+} from 'lucide-react';
 import QuickAddModal from './QuickAddModal';
 
 interface Department {
@@ -24,6 +30,7 @@ export default function DashboardOverview() {
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [quickAddType, setQuickAddType] = useState<'task' | 'expense' | 'member'>('task');
   const { formatDisplay, rates } = useCurrency();
+  const { profile } = useAuth();
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -35,10 +42,7 @@ export default function DashboardOverview() {
           fetch('/api/table-data?table=departments'),
         ]);
         const [revData, expData, taskData, deptData] = await Promise.all([
-          revRes.json(),
-          expRes.json(),
-          taskRes.json(),
-          deptRes.json(),
+          revRes.json(), expRes.json(), taskRes.json(), deptRes.json(),
         ]);
         setRevenue(revData || []);
         setExpenses(expData || []);
@@ -60,9 +64,10 @@ export default function DashboardOverview() {
   const totalTasks = tasks.length;
   const doneTasks = tasks.filter(t => t.status === 'Done').length;
   const inProgressTasks = tasks.filter(t => t.status === 'In Progress').length;
+  const todoTasks = tasks.filter(t => t.status === 'To Do').length;
   const taskRate = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
 
-  const deptData = departments.map(d => {
+  const deptData = useMemo(() => departments.map(d => {
     const deptRev = revenue
       .filter(r => r.department_id === d.id)
       .reduce((s, r) => s + convertToUSD(Number(r.amount) || 0, r.currency, rates), 0);
@@ -73,21 +78,50 @@ export default function DashboardOverview() {
     const deptDone = deptTasks.filter(t => t.status === 'Done').length;
     const net = deptRev - deptExp;
     return { ...d, revenue: deptRev, expenses: deptExp, net, tasks: deptTasks.length, done: deptDone };
-  }).sort((a, b) => b.revenue - a.revenue);
+  }).sort((a, b) => b.revenue - a.revenue), [departments, revenue, expenses, tasks, rates]);
 
-  const maxVal = Math.max(...deptData.map(d => Math.max(d.revenue, d.expenses)), 1);
+  // Recent activity: last 8 items (tasks + expenses) sorted by created_at
+  const recentActivity = useMemo(() => {
+    const items: { id: string; type: 'task' | 'expense'; label: string; detail: string; time: string; status?: string }[] = [];
+    tasks.slice(0, 20).forEach(t => {
+      items.push({
+        id: t.id, type: 'task', label: t.task || 'Untitled task',
+        detail: t.department_id || 'General',
+        time: t.created_at, status: t.status,
+      });
+    });
+    expenses.slice(0, 20).forEach(e => {
+      items.push({
+        id: e.id, type: 'expense', label: e.description || 'Untitled expense',
+        detail: `${formatDisplay(convertToUSD(Number(e.amount) || 0, e.currency, rates))}`,
+        time: e.created_at,
+      });
+    });
+    return items
+      .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+      .slice(0, 8);
+  }, [tasks, expenses, rates, formatDisplay]);
+
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  }, []);
+
+  const firstName = profile?.full_name?.split(' ')[0] || '';
 
   if (loading) {
     return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-28 bg-gray-100 rounded-2xl animate-pulse" />
-          ))}
+      <div className="space-y-6">
+        <div className="h-12 bg-gray-100 rounded-xl animate-pulse w-64" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => <div key={i} className="h-[104px] bg-gray-100 rounded-2xl animate-pulse" />)}
         </div>
-        {[...Array(5)].map((_, i) => (
-          <div key={i} className="h-16 bg-gray-100 rounded-xl animate-pulse" />
-        ))}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <div className="lg:col-span-2 h-80 bg-gray-100 rounded-2xl animate-pulse" />
+          <div className="h-80 bg-gray-100 rounded-2xl animate-pulse" />
+        </div>
       </div>
     );
   }
@@ -95,242 +129,252 @@ export default function DashboardOverview() {
   return (
     <div className="space-y-6">
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-
-        {/* Revenue */}
-        <div className="relative bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl p-5 overflow-hidden shadow-lg shadow-emerald-100">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-8 translate-x-8" />
-          <div className="absolute bottom-0 right-4 w-12 h-12 bg-white/10 rounded-full translate-y-4" />
-          <div className="relative">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-emerald-100 text-xs font-semibold uppercase tracking-widest">Revenue</span>
-              <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                <TrendingUp size={15} className="text-white" />
-              </div>
-            </div>
-            <p className="text-white text-2xl font-bold tracking-tight">{formatDisplay(totalRevUSD)}</p>
-            <p className="text-emerald-100 text-xs mt-1">{revenue.length} entries recorded</p>
-          </div>
+      {/* ── Header: Greeting + Quick Actions ── */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">
+            {greeting}{firstName ? `, ${firstName}` : ''}
+          </h1>
+          <p className="text-sm text-gray-400 mt-0.5">Here&apos;s what&apos;s happening across your business</p>
         </div>
-
-        {/* Expenses */}
-        <div className="relative bg-gradient-to-br from-rose-500 to-rose-600 rounded-2xl p-5 overflow-hidden shadow-lg shadow-rose-100">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-8 translate-x-8" />
-          <div className="absolute bottom-0 right-4 w-12 h-12 bg-white/10 rounded-full translate-y-4" />
-          <div className="relative">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-rose-100 text-xs font-semibold uppercase tracking-widest">Expenses</span>
-              <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                <TrendingDown size={15} className="text-white" />
-              </div>
-            </div>
-            <p className="text-white text-2xl font-bold tracking-tight">{formatDisplay(totalExpUSD)}</p>
-            <p className="text-rose-100 text-xs mt-1">{expenses.length} entries recorded</p>
-          </div>
-        </div>
-
-        {/* Net Profit */}
-        <div className={`relative rounded-2xl p-5 overflow-hidden shadow-lg ${
-          netProfit >= 0
-            ? 'bg-gradient-to-br from-blue-500 to-blue-600 shadow-blue-100'
-            : 'bg-gradient-to-br from-orange-500 to-orange-600 shadow-orange-100'
-        }`}>
-          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-8 translate-x-8" />
-          <div className="absolute bottom-0 right-4 w-12 h-12 bg-white/10 rounded-full translate-y-4" />
-          <div className="relative">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-blue-100 text-xs font-semibold uppercase tracking-widest">Net Profit</span>
-              <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                <BarChart3 size={15} className="text-white" />
-              </div>
-            </div>
-            <p className="text-white text-2xl font-bold tracking-tight">{formatDisplay(netProfit)}</p>
-            <p className="text-blue-100 text-xs mt-1">
-              {margin >= 0 ? '+' : ''}{margin.toFixed(1)}% margin
-            </p>
-          </div>
-        </div>
-
-        {/* Tasks */}
-        <div className="relative bg-gradient-to-br from-violet-500 to-violet-600 rounded-2xl p-5 overflow-hidden shadow-lg shadow-violet-100">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-8 translate-x-8" />
-          <div className="absolute bottom-0 right-4 w-12 h-12 bg-white/10 rounded-full translate-y-4" />
-          <div className="relative">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-violet-100 text-xs font-semibold uppercase tracking-widest">Tasks</span>
-              <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                <CheckCircle2 size={15} className="text-white" />
-              </div>
-            </div>
-            <p className="text-white text-2xl font-bold tracking-tight">
-              {doneTasks}<span className="text-violet-200 text-lg font-medium"> / {totalTasks}</span>
-            </p>
-            <div className="mt-2 flex items-center gap-2">
-              <div className="flex-1 bg-white/20 rounded-full h-1.5">
-                <div className="bg-white h-full rounded-full transition-all duration-700" style={{ width: `${taskRate}%` }} />
-              </div>
-              <span className="text-violet-100 text-xs">{taskRate}%</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Secondary stats */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="bg-white border border-gray-100 rounded-xl px-4 py-3 flex items-center gap-3 shadow-sm">
-          <div className="w-2 h-8 bg-emerald-400 rounded-full" />
-          <div>
-            <p className="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">Completed</p>
-            <p className="text-lg font-bold text-gray-900">{doneTasks}</p>
-          </div>
-        </div>
-        <div className="bg-white border border-gray-100 rounded-xl px-4 py-3 flex items-center gap-3 shadow-sm">
-          <div className="w-2 h-8 bg-amber-400 rounded-full" />
-          <div>
-            <p className="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">In Progress</p>
-            <p className="text-lg font-bold text-gray-900">{inProgressTasks}</p>
-          </div>
-        </div>
-        <div className="bg-white border border-gray-100 rounded-xl px-4 py-3 flex items-center gap-3 shadow-sm">
-          <div className="w-2 h-8 bg-blue-400 rounded-full" />
-          <div>
-            <p className="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">Departments</p>
-            <p className="text-lg font-bold text-gray-900">{departments.length}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Quick Add Actions */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <h3 className="font-semibold text-gray-900 text-sm">Quick Add</h3>
-            <p className="text-xs text-gray-400 mt-0.5">Create items from anywhere — department is optional</p>
-          </div>
-        </div>
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
           {[
-            { type: 'task' as const,    label: 'New Task',       icon: <CheckSquare size={15} />, cls: 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100' },
-            { type: 'expense' as const, label: 'New Expense',    icon: <Wallet size={15} />,      cls: 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'             },
-            { type: 'member' as const,  label: 'New Team Member', icon: <Users size={15} />,       cls: 'bg-violet-50 text-violet-700 border-violet-200 hover:bg-violet-100'     },
-          ].map(action => (
+            { type: 'task' as const,    label: 'Task',    icon: <CheckSquare size={14} /> },
+            { type: 'expense' as const, label: 'Expense', icon: <Wallet size={14} /> },
+            { type: 'member' as const,  label: 'Member',  icon: <Users size={14} /> },
+          ].map(a => (
             <button
-              key={action.type}
-              onClick={() => { setQuickAddType(action.type); setQuickAddOpen(true); }}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border transition-all ${action.cls}`}
+              key={a.type}
+              onClick={() => { setQuickAddType(a.type); setQuickAddOpen(true); }}
+              className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs font-medium text-gray-600 hover:border-[#3b82f6] hover:text-[#3b82f6] transition-all"
             >
-              {action.icon}
-              {action.label}
+              <Plus size={12} />
+              {a.label}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Department Performance */}
-      <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-          <div>
-            <h3 className="font-semibold text-gray-900">Department Performance</h3>
-            <p className="text-xs text-gray-400 mt-0.5">Revenue vs expenses by department</p>
+      {/* ── KPI Cards ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+        {/* Revenue */}
+        <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Revenue</span>
+            <div className="w-9 h-9 bg-emerald-50 rounded-xl flex items-center justify-center">
+              <TrendingUp size={16} className="text-emerald-500" />
+            </div>
           </div>
-          <div className="flex items-center gap-4 text-xs text-gray-400">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm bg-emerald-400 inline-block" />Revenue
+          <p className="text-2xl font-bold text-gray-900 tracking-tight">{formatDisplay(totalRevUSD)}</p>
+          <p className="text-xs text-gray-400 mt-1.5">{revenue.length} entries recorded</p>
+        </div>
+
+        {/* Expenses */}
+        <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Expenses</span>
+            <div className="w-9 h-9 bg-rose-50 rounded-xl flex items-center justify-center">
+              <TrendingDown size={16} className="text-rose-500" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold text-gray-900 tracking-tight">{formatDisplay(totalExpUSD)}</p>
+          <p className="text-xs text-gray-400 mt-1.5">{expenses.length} entries recorded</p>
+        </div>
+
+        {/* Net Profit */}
+        <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Net Profit</span>
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${netProfit >= 0 ? 'bg-blue-50' : 'bg-orange-50'}`}>
+              <DollarSign size={16} className={netProfit >= 0 ? 'text-blue-500' : 'text-orange-500'} />
+            </div>
+          </div>
+          <p className="text-2xl font-bold text-gray-900 tracking-tight">{formatDisplay(netProfit)}</p>
+          <div className="flex items-center gap-1.5 mt-1.5">
+            <span className={`inline-flex items-center gap-0.5 text-xs font-semibold ${margin >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+              {margin >= 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+              {Math.abs(margin).toFixed(1)}%
             </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm bg-rose-400 inline-block" />Expenses
-            </span>
+            <span className="text-xs text-gray-400">margin</span>
           </div>
         </div>
 
-        {deptData.length === 0 ? (
-          <div className="py-16 text-center">
-            <BarChart3 size={32} className="mx-auto text-gray-200 mb-3" />
-            <p className="text-sm text-gray-400">No departments found. Add departments to get started.</p>
+        {/* Tasks */}
+        <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Tasks</span>
+            <div className="w-9 h-9 bg-violet-50 rounded-xl flex items-center justify-center">
+              <CheckCircle2 size={16} className="text-violet-500" />
+            </div>
           </div>
-        ) : (
-          <div className="divide-y divide-gray-50">
-            {deptData.map((d, i) => {
-              const Icon = DEPARTMENT_ICONS[d.icon];
-              const revPct = maxVal > 0 ? (d.revenue / maxVal) * 100 : 0;
-              const expPct = maxVal > 0 ? (d.expenses / maxVal) * 100 : 0;
-              const taskPct = d.tasks > 0 ? Math.round((d.done / d.tasks) * 100) : 0;
-              const isProfit = d.net >= 0;
+          <p className="text-2xl font-bold text-gray-900 tracking-tight">
+            {doneTasks}<span className="text-gray-300 text-lg font-medium"> / {totalTasks}</span>
+          </p>
+          <div className="mt-2.5 flex items-center gap-2">
+            <div className="flex-1 bg-gray-100 rounded-full h-2">
+              <div className="bg-violet-500 h-full rounded-full transition-all duration-700" style={{ width: `${taskRate}%` }} />
+            </div>
+            <span className="text-xs font-semibold text-gray-500">{taskRate}%</span>
+          </div>
+        </div>
+      </div>
 
-              return (
-                <div
-                  key={d.id}
-                  className="px-6 py-4 hover:bg-gray-50/60 transition-colors"
-                  style={{ animationDelay: `${i * 50}ms` }}
-                >
-                  <div className="flex items-start gap-4">
+      {/* ── Task Status Summary ── */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-white border border-gray-200 rounded-xl px-4 py-3.5 flex items-center gap-3 shadow-sm">
+          <div className="w-8 h-8 bg-red-50 rounded-lg flex items-center justify-center">
+            <Circle size={14} className="text-red-400" />
+          </div>
+          <div>
+            <p className="text-lg font-bold text-gray-900 leading-none">{todoTasks}</p>
+            <p className="text-[11px] text-gray-400 font-medium mt-0.5">To Do</p>
+          </div>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-xl px-4 py-3.5 flex items-center gap-3 shadow-sm">
+          <div className="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center">
+            <Clock size={14} className="text-amber-400" />
+          </div>
+          <div>
+            <p className="text-lg font-bold text-gray-900 leading-none">{inProgressTasks}</p>
+            <p className="text-[11px] text-gray-400 font-medium mt-0.5">In Progress</p>
+          </div>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-xl px-4 py-3.5 flex items-center gap-3 shadow-sm">
+          <div className="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center">
+            <CheckCircle2 size={14} className="text-emerald-400" />
+          </div>
+          <div>
+            <p className="text-lg font-bold text-gray-900 leading-none">{doneTasks}</p>
+            <p className="text-[11px] text-gray-400 font-medium mt-0.5">Completed</p>
+          </div>
+        </div>
+      </div>
 
-                    {/* Department icon + name — min width so long names wrap, never truncate */}
-                    <div className="flex items-start gap-2.5 shrink-0" style={{ width: '200px' }}>
-                      <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 mt-0.5">
-                        {Icon && <Icon size={15} className="text-gray-500" />}
-                      </div>
-                      <span className="text-sm font-medium text-gray-700 break-words whitespace-normal leading-snug min-w-0 flex-1">
-                        {d.name}
-                      </span>
-                    </div>
+      {/* ── Main Content: Department Performance + Recent Activity ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
-                    {/* Bar charts */}
-                    <div className="flex-1 space-y-1.5 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 bg-gray-100 rounded-full h-3 overflow-hidden">
-                          <div
-                            className="bg-emerald-400 h-full rounded-full transition-all duration-700"
-                            style={{ width: `${revPct}%` }}
-                          />
-                        </div>
-                        <span className="text-xs font-semibold text-emerald-600 w-20 text-right tabular-nums">
-                          {formatDisplay(d.revenue)}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 bg-gray-100 rounded-full h-3 overflow-hidden">
-                          <div
-                            className="bg-rose-400 h-full rounded-full transition-all duration-700"
-                            style={{ width: `${expPct}%` }}
-                          />
-                        </div>
-                        <span className="text-xs font-semibold text-rose-500 w-20 text-right tabular-nums">
-                          {formatDisplay(d.expenses)}
-                        </span>
-                      </div>
-                    </div>
+        {/* Department Performance — 2/3 width */}
+        <div className="lg:col-span-2 bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+          <div className="px-5 py-4 border-b border-gray-100">
+            <h3 className="font-semibold text-gray-900 text-sm">Department Performance</h3>
+            <p className="text-xs text-gray-400 mt-0.5">Revenue, expenses and tasks by department</p>
+          </div>
 
-                    {/* Net profit badge */}
-                    <div className="w-24 shrink-0 text-right pt-0.5">
-                      <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${
-                        isProfit ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-600'
-                      }`}>
-                        <ArrowUpRight size={10} className={isProfit ? '' : 'rotate-90'} />
-                        {formatDisplay(Math.abs(d.net))}
-                      </div>
-                    </div>
+          {deptData.length === 0 ? (
+            <div className="py-16 text-center">
+              <BarChart3 size={28} className="mx-auto text-gray-200 mb-3" />
+              <p className="text-sm text-gray-400">No departments yet</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-5 py-3">Department</th>
+                    <th className="text-right text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-4 py-3">Revenue</th>
+                    <th className="text-right text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-4 py-3">Expenses</th>
+                    <th className="text-right text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-4 py-3">Profit</th>
+                    <th className="text-right text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-5 py-3">Tasks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {deptData.map((d, i) => {
+                    const Icon = DEPARTMENT_ICONS[d.icon];
+                    const isProfit = d.net >= 0;
+                    const taskPct = d.tasks > 0 ? Math.round((d.done / d.tasks) * 100) : 0;
 
-                    {/* Task progress */}
-                    <div className="w-24 shrink-0 pt-1">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <div className="w-12 bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                          <div
-                            className="bg-violet-400 h-full rounded-full transition-all duration-700"
-                            style={{ width: `${taskPct}%` }}
-                          />
-                        </div>
-                        <span className="text-[11px] text-gray-400 tabular-nums">{d.done}/{d.tasks}</span>
-                      </div>
-                    </div>
+                    return (
+                      <tr key={d.id} className={`border-b border-gray-50 last:border-b-0 hover:bg-gray-50/60 transition-colors ${i % 2 === 1 ? 'bg-gray-50/30' : ''}`}>
+                        <td className="px-5 py-3.5">
+                          <Link href={`/dashboard/${d.id}`} className="flex items-center gap-2.5 group">
+                            <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 group-hover:bg-blue-50 transition-colors">
+                              {Icon && <Icon size={13} className="text-gray-500 group-hover:text-blue-500 transition-colors" />}
+                            </div>
+                            <span className="text-sm font-medium text-gray-700 group-hover:text-blue-600 transition-colors break-words whitespace-normal leading-snug">
+                              {d.name}
+                            </span>
+                          </Link>
+                        </td>
+                        <td className="px-4 py-3.5 text-right">
+                          <span className="text-sm font-semibold text-gray-900 tabular-nums">{formatDisplay(d.revenue)}</span>
+                        </td>
+                        <td className="px-4 py-3.5 text-right">
+                          <span className="text-sm text-gray-500 tabular-nums">{formatDisplay(d.expenses)}</span>
+                        </td>
+                        <td className="px-4 py-3.5 text-right">
+                          <span className={`inline-flex items-center gap-0.5 text-xs font-semibold px-2 py-0.5 rounded-full ${
+                            isProfit ? 'text-emerald-700 bg-emerald-50' : 'text-rose-600 bg-rose-50'
+                          }`}>
+                            {isProfit ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
+                            {formatDisplay(Math.abs(d.net))}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <div className="w-14 bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                              <div className="bg-violet-400 h-full rounded-full transition-all duration-700" style={{ width: `${taskPct}%` }} />
+                            </div>
+                            <span className="text-xs text-gray-400 tabular-nums w-10 text-right">{d.done}/{d.tasks}</span>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
 
+        {/* Recent Activity — 1/3 width */}
+        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm flex flex-col">
+          <div className="px-5 py-4 border-b border-gray-100">
+            <h3 className="font-semibold text-gray-900 text-sm">Recent Activity</h3>
+            <p className="text-xs text-gray-400 mt-0.5">Latest tasks and expenses</p>
+          </div>
+
+          {recentActivity.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center py-12">
+              <div className="text-center">
+                <Activity size={24} className="mx-auto text-gray-200 mb-2" />
+                <p className="text-sm text-gray-400">No recent activity</p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex-1 overflow-y-auto">
+              {recentActivity.map((item, i) => (
+                <div key={`${item.type}-${item.id}`} className={`px-5 py-3.5 flex items-start gap-3 ${i < recentActivity.length - 1 ? 'border-b border-gray-50' : ''} hover:bg-gray-50/60 transition-colors`}>
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
+                    item.type === 'task' ? 'bg-violet-50' : 'bg-rose-50'
+                  }`}>
+                    {item.type === 'task'
+                      ? item.status === 'Done'
+                        ? <CheckCircle2 size={13} className="text-emerald-500" />
+                        : item.status === 'In Progress'
+                          ? <Clock size={13} className="text-amber-500" />
+                          : <Circle size={13} className="text-violet-400" />
+                      : <Wallet size={13} className="text-rose-400" />
+                    }
                   </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-gray-700 font-medium leading-snug truncate">{item.label}</p>
+                    <p className="text-xs text-gray-400 mt-0.5 truncate">{item.detail}</p>
+                  </div>
+                  {item.type === 'task' && item.status && (
+                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0 ${
+                      item.status === 'Done' ? 'bg-emerald-50 text-emerald-600' :
+                      item.status === 'In Progress' ? 'bg-amber-50 text-amber-600' :
+                      'bg-gray-100 text-gray-500'
+                    }`}>
+                      {item.status}
+                    </span>
+                  )}
                 </div>
-              );
-            })}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <QuickAddModal open={quickAddOpen} onClose={() => setQuickAddOpen(false)} defaultType={quickAddType} />
