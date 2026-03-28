@@ -9,6 +9,7 @@ import {
   MoreHorizontal, Pencil, Trash2, Check, X, GripVertical,
   LayoutDashboard, CheckSquare, Wallet, Users, TrendingUp, Target,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { DEPARTMENT_ICONS } from '@/lib/departments';
 import { useAuth } from '@/lib/auth-context';
 import AddDepartmentModal from '@/components/add-department-modal';
@@ -301,6 +302,7 @@ export default function Sidebar() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: trimmed }),
     });
+    toast.success('Department renamed');
   };
 
   const handleDelete = async (id: string) => {
@@ -308,6 +310,7 @@ export default function Sidebar() {
     if (!confirm(`Delete department "${departments.find(d => d.id === id)?.name}"? This cannot be undone.`)) return;
     setDepartments(prev => prev.filter(d => d.id !== id));
     await fetch(`/api/departments/${id}`, { method: 'DELETE' });
+    toast.success('Department deleted');
     if (pathname === `/dashboard/${id}`) router.push('/dashboard');
   };
 

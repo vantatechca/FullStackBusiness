@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { X, ChevronDown } from 'lucide-react';
+import { toast } from 'sonner';
 import { CURRENCIES } from '@/lib/types';
 
 type EntityType = 'task' | 'expense' | 'member';
@@ -119,7 +120,7 @@ export default function QuickAddModal({ open, onClose, entityType }: QuickAddMod
           }),
         });
         if (!res.ok) throw new Error('Failed to create task');
-        setSuccess('Task created!');
+        toast.success('Task created');
       } else if (entityType === 'expense') {
         if (!expDescription.trim()) { setError('Description is required'); setSubmitting(false); return; }
         if (!expAmount || Number(expAmount) <= 0) { setError('Amount must be greater than 0'); setSubmitting(false); return; }
@@ -132,7 +133,7 @@ export default function QuickAddModal({ open, onClose, entityType }: QuickAddMod
           }),
         });
         if (!res.ok) throw new Error('Failed to create expense');
-        setSuccess('Expense created!');
+        toast.success('Expense created');
         window.dispatchEvent(new Event('expenses-updated'));
       } else if (entityType === 'member') {
         if (!memberName.trim()) { setError('Member name is required'); setSubmitting(false); return; }
@@ -145,11 +146,13 @@ export default function QuickAddModal({ open, onClose, entityType }: QuickAddMod
           }),
         });
         if (!res.ok) throw new Error('Failed to add team member');
-        setSuccess('Team member added!');
+        toast.success('Team member added');
       }
       setTimeout(() => { handleClose(); }, 600);
     } catch (err: any) {
-      setError(err.message || 'Something went wrong');
+      const msg = err.message || 'Something went wrong';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
 import {
   Target, Plus, X, ChevronDown, Trash2, TrendingUp,
   DollarSign, CheckSquare, Star, CheckCircle2,
@@ -150,11 +151,13 @@ export default function GoalsView({ departmentId }: { departmentId?: string }) {
         });
         if (!res.ok) throw new Error('Failed to create goal');
       }
+      toast.success(editingId ? 'Goal updated' : 'Goal created');
       resetForm();
       setShowForm(false);
       await fetchGoals();
     } catch (err: any) {
       setFormError(err.message);
+      toast.error(err.message);
     } finally {
       setSubmitting(false);
     }
@@ -163,6 +166,7 @@ export default function GoalsView({ departmentId }: { departmentId?: string }) {
   const handleDelete = async (id: string) => {
     setGoals(prev => prev.filter(g => g.id !== id));
     await fetch(`/api/goals/${id}`, { method: 'DELETE' });
+    toast.success('Goal deleted');
   };
 
   const handleStatusChange = async (id: string, status: string) => {
@@ -171,6 +175,7 @@ export default function GoalsView({ departmentId }: { departmentId?: string }) {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }),
     });
+    toast.success(status === 'completed' ? 'Goal marked as completed' : 'Goal marked as missed');
   };
 
   const handleUpdateCurrent = async (id: string, value: number) => {

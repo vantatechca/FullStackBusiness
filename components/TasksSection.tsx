@@ -248,6 +248,7 @@
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, Clock, Circle } from 'lucide-react';
+import { toast } from 'sonner';
 import { useRealtimeTable } from '@/lib/realtime';
 import { useAuth } from '@/lib/auth-context';
 import SpreadsheetTable from './SpreadsheetTable';
@@ -434,8 +435,10 @@ export default function TasksSection({ departmentId }: { departmentId: string })
     if (res.ok) {
       const inserted = await res.json();
       setData(prev => prev.map(row => row.id === tempId ? inserted : row));
+      toast.success('Task added');
     } else {
       setData(prev => prev.filter(row => row.id !== tempId));
+      toast.error('Failed to add task');
       await refetch();
     }
   }, [departmentId, profile?.id, setData, refetch]);
@@ -462,12 +465,13 @@ export default function TasksSection({ departmentId }: { departmentId: string })
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
-    }).catch(() => refetch());
+    }).catch(() => { toast.error('Failed to update task'); refetch(); });
   }, [setData, refetch]);
 
   const handleDelete = useCallback(async (id: string) => {
     setData(prev => prev.filter(row => row.id !== id));
     await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+    toast.success('Task deleted');
   }, [setData]);
 
   return (
