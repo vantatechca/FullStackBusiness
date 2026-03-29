@@ -7,7 +7,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   PanelLeftClose, PanelLeft, Search, LogOut, Plus,
   MoreHorizontal, Pencil, Trash2, Check, X, GripVertical,
-  LayoutDashboard, CheckSquare, Wallet, Users, TrendingUp, DollarSign,
+  LayoutDashboard, CheckSquare, Wallet, Users, TrendingUp, DollarSign, BarChart3,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { DEPARTMENT_ICONS } from '@/lib/departments';
@@ -248,7 +248,8 @@ export default function Sidebar() {
 
   // Top-level nav items (not department-bound)
   const TOP_NAV = useMemo(() => [
-    { id: 'dashboard',        label: 'Dashboard',  icon: LayoutDashboard },
+    { id: 'dashboard',        label: 'Dashboard',    icon: LayoutDashboard },
+    { id: 'assets',           label: 'Assets',       icon: BarChart3       },
     { id: 'tasks-daily-goals', label: 'All Tasks',    icon: CheckSquare     },
     { id: 'revenue-global',   label: 'All Revenue',  icon: DollarSign     },
     { id: 'expenses-global',  label: 'All Expenses', icon: Wallet         },
