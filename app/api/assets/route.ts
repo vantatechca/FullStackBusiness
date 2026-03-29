@@ -16,10 +16,10 @@ export const GET = apiHandler(async () => {
 export const POST = apiHandler(async (req) => {
   await requireAuth();
   const body = await req.json();
-  const { category, metric, value, previous_value, direction, sort_order, notes } = body;
+  const { category, metric, value, previous_value, direction, tracking, sort_order, notes } = body;
   const rows = await sql`
-    INSERT INTO public.assets (category, metric, value, previous_value, direction, sort_order, notes)
-    VALUES (${category}, ${metric}, ${value ?? 0}, ${previous_value ?? 0}, ${direction || 'up_good'}, ${sort_order ?? 0}, ${notes || ''})
+    INSERT INTO public.assets (category, metric, value, previous_value, direction, tracking, sort_order, notes)
+    VALUES (${category}, ${metric}, ${value ?? 0}, ${previous_value ?? 0}, ${direction || 'up_good'}, ${tracking || 'total'}, ${sort_order ?? 0}, ${notes || ''})
     RETURNING *
   `;
   return NextResponse.json(rows[0], { status: 201 });
