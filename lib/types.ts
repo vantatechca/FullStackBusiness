@@ -175,9 +175,18 @@ export interface Asset {
   value: number;
   previous_value: number;
   direction: 'up_good' | 'down_good';
+  tracking: 'total' | 'daily';
   sort_order: number;
   notes: string;
   updated_at: string;
+  created_at: string;
+}
+
+export interface AssetDailyLog {
+  id: string;
+  asset_id: string;
+  date: string;
+  value: number;
   created_at: string;
 }
 

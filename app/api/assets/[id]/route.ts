@@ -14,6 +14,7 @@ export const PATCH = apiHandler(async (req, { params }: { params: { id: string }
       value          = COALESCE(${body.value ?? null}, value),
       previous_value = COALESCE(${body.previous_value ?? null}, previous_value),
       direction      = COALESCE(${body.direction ?? null}, direction),
+      tracking       = COALESCE(${body.tracking ?? null}, tracking),
       sort_order     = COALESCE(${body.sort_order ?? null}, sort_order),
       notes          = COALESCE(${body.notes ?? null}, notes),
       updated_at     = now()
