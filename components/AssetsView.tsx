@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { format, subDays } from 'date-fns';
 import {
   ArrowUpRight, ArrowDownRight, Minus, Plus, X, ChevronDown, ChevronRight,
-  Pencil, Trash2, RefreshCw, BarChart3,
+  Pencil, Trash2, RefreshCw, BarChart3, Check,
 } from 'lucide-react';
 import type { Asset, AssetDailyLog } from '@/lib/types';
 
@@ -37,6 +37,11 @@ export default function AssetsView() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [snapshotting, setSnapshotting] = useState(false);
 
+  // Category notes
+  const [catNotes, setCatNotes] = useState<Record<string, string>>({});
+  const [editingCatNote, setEditingCatNote] = useState<string | null>(null);
+  const [catNoteDraft, setCatNoteDraft] = useState('');
+
   // Form
   const [formCategory, setFormCategory] = useState('');
   const [formCategoryCustom, setFormCategoryCustom] = useState(false);
@@ -52,12 +57,19 @@ export default function AssetsView() {
 
   const fetchAssets = useCallback(async () => {
     try {
-      const [aRes, lRes] = await Promise.all([
+      const [aRes, lRes, nRes] = await Promise.all([
         fetch('/api/assets'),
         fetch('/api/asset-daily-logs'),
+        fetch('/api/asset-category-notes'),
       ]);
       if (aRes.ok) { const d = await aRes.json(); setAssets(Array.isArray(d) ? d : []); }
       if (lRes.ok) { const d = await lRes.json(); setDailyLogs(Array.isArray(d) ? d : []); }
+      if (nRes.ok) {
+        const d = await nRes.json();
+        const map: Record<string, string> = {};
+        if (Array.isArray(d)) d.forEach((n: any) => { map[n.category] = n.notes || ''; });
+        setCatNotes(map);
+      }
     } catch (err) {
       console.error('Failed to fetch assets:', err);
     } finally {
@@ -121,6 +133,34 @@ export default function AssetsView() {
     const delta = a.value - a.previous_value;
     return a.direction === 'up_good' ? delta < 0 : delta > 0;
   }).length;
+
+  const startEditCatNote = (cat: string) => {
+    setEditingCatNote(cat);
+    setCatNoteDraft(catNotes[cat] || '');
+  };
+  const cancelEditCatNote = () => { setEditingCatNote(null); setCatNoteDraft(''); };
+  const saveCatNote = async (cat: string) => {
+    const note = catNoteDraft;
+    setCatNotes(prev => ({ ...prev, [cat]: note }));
+    setEditingCatNote(null);
+    try {
+      await fetch('/api/asset-category-notes', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category: cat, notes: note }),
+      });
+      toast.success('Note saved');
+    } catch { toast.error('Failed to save note'); }
+  };
+  const clearCatNote = async (cat: string) => {
+    setCatNotes(prev => ({ ...prev, [cat]: '' }));
+    try {
+      await fetch('/api/asset-category-notes', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category: cat, notes: '' }),
+      });
+      toast.success('Note cleared');
+    } catch { toast.error('Failed to clear note'); }
+  };
 
   const toggleCategory = (cat: string) => {
     setCollapsedCats(prev => { const n = new Set(prev); n.has(cat) ? n.delete(cat) : n.add(cat); return n; });
@@ -276,6 +316,44 @@ export default function AssetsView() {
                   </div>
                   {collapsed ? <ChevronRight size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
                 </button>
+
+                {/* Category Note */}
+                {!collapsed && (
+                  <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/40">
+                    {editingCatNote === category ? (
+                      <div className="flex items-start gap-2">
+                        <textarea
+                          value={catNoteDraft}
+                          onChange={e => setCatNoteDraft(e.target.value)}
+                          placeholder="Add a note for this category..."
+                          rows={2}
+                          className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#3b82f6] outline-none resize-none"
+                          autoFocus
+                        />
+                        <button onClick={() => saveCatNote(category)} className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors" title="Save">
+                          <Check size={14} />
+                        </button>
+                        <button onClick={cancelEditCatNote} className="p-1.5 rounded-lg bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600 transition-colors" title="Cancel">
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-start gap-2 min-h-[28px]">
+                        <p className="flex-1 text-xs text-gray-500 leading-relaxed whitespace-pre-wrap">
+                          {catNotes[category] || <span className="text-gray-300 italic">No note — click edit to add</span>}
+                        </p>
+                        <button onClick={() => startEditCatNote(category)} className="p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 shrink-0 transition-colors" title="Edit note">
+                          <Pencil size={12} />
+                        </button>
+                        {catNotes[category] && (
+                          <button onClick={() => clearCatNote(category)} className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500 shrink-0 transition-colors" title="Clear note">
+                            <Trash2 size={12} />
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {!collapsed && (
                   <div className="border-t border-gray-100">
