@@ -10,7 +10,7 @@ export interface Department {
   id: string;
   name: string;
   icon: string;
-  type: 'overview' | 'standard' | 'gmb' | 'influencers' | 'restock' | 'team' | 'tasks' | 'expenses-global' | 'revenue-global' | 'net-profit' | 'admin';
+  type: 'overview' | 'standard' | 'gmb' | 'influencers' | 'restock' | 'team' | 'tasks' | 'assets' | 'expenses-global' | 'revenue-global' | 'net-profit' | 'admin';
   sort_order: number;
 }
 
@@ -166,6 +166,19 @@ export interface ColumnDef {
   type: ColumnType;
   options?: string[];
   width?: string;
+}
+
+export interface Asset {
+  id: string;
+  category: string;
+  metric: string;
+  value: number;
+  previous_value: number;
+  direction: 'up_good' | 'down_good';
+  sort_order: number;
+  notes: string;
+  updated_at: string;
+  created_at: string;
 }
 
 export const CURRENCIES = ['USD', 'CAD', 'EUR', 'GBP', 'AED', 'AUD', 'BTC', 'USDT'] as const;
