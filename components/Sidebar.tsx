@@ -174,7 +174,7 @@ export default function Sidebar() {
   const saveTimer    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pathname     = usePathname();
   const router       = useRouter();
-  const { canAccessDepartment, signOut, profile, loading, isAdmin } = useAuth();
+  const { canAccessDepartment, signOut, profile, loading, isAdmin, isSuperAdmin } = useAuth();
 
   // ── Drag-to-resize ──────────────────────────────────────────────────────
   const onResizePointerDown = useCallback((e: React.PointerEvent) => {
@@ -314,8 +314,8 @@ export default function Sidebar() {
   };
 
   const isLoadingAny = loading || deptsLoading;
-  const adminDept    = departments.find(d => d.id === 'admin');
-  const showAdmin    = !loading && adminDept && canAccessDepartment('admin') &&
+  const adminDept    = departments.find(d => d.id === 'admin') || (isSuperAdmin ? { id: 'admin', name: 'Admin Panel', icon: 'ShieldCheck', type: 'admin', sort_order: 105 } : undefined);
+  const showAdmin    = !loading && isSuperAdmin && adminDept &&
     (!search || 'admin panel'.includes(search.toLowerCase()));
 
   return (

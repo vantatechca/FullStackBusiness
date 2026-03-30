@@ -1169,14 +1169,14 @@ export default function AdminPanel() {
   const { profile, isAdmin, isSuperAdmin } = useAuth();
   const { departments, loading: deptsLoading } = useDepartments();
 
-  if (!isAdmin) {
+  if (!isSuperAdmin) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center">
         <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
           <Lock size={28} className="text-gray-300" />
         </div>
         <p className="text-gray-700 font-semibold mb-1">Access Denied</p>
-        <p className="text-sm text-gray-400">Admin access required to view this panel.</p>
+        <p className="text-sm text-gray-400">Super Admin access required to view this panel.</p>
       </div>
     );
   }
