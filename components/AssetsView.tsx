@@ -5,9 +5,10 @@ import { toast } from 'sonner';
 import { format, subDays } from 'date-fns';
 import {
   ArrowUpRight, ArrowDownRight, Minus, Plus, X, ChevronDown, ChevronRight,
-  Pencil, Trash2, RefreshCw, BarChart3, Check,
+  Pencil, Trash2, RefreshCw, BarChart3, Check, GripVertical,
 } from 'lucide-react';
 import type { Asset, AssetDailyLog } from '@/lib/types';
+import { useDragReorder } from '@/lib/use-drag-reorder';
 
 const PALETTE = [
   'bg-blue-500', 'bg-violet-500', 'bg-emerald-500', 'bg-rose-500',
@@ -37,8 +38,9 @@ export default function AssetsView() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [snapshotting, setSnapshotting] = useState(false);
 
-  // Category notes
+  // Category notes + sort order
   const [catNotes, setCatNotes] = useState<Record<string, string>>({});
+  const [catSortOrder, setCatSortOrder] = useState<Record<string, number>>({});
   const [editingCatNote, setEditingCatNote] = useState<string | null>(null);
   const [catNoteDraft, setCatNoteDraft] = useState('');
 
@@ -66,9 +68,14 @@ export default function AssetsView() {
       if (lRes.ok) { const d = await lRes.json(); setDailyLogs(Array.isArray(d) ? d : []); }
       if (nRes.ok) {
         const d = await nRes.json();
-        const map: Record<string, string> = {};
-        if (Array.isArray(d)) d.forEach((n: any) => { map[n.category] = n.notes || ''; });
-        setCatNotes(map);
+        const noteMap: Record<string, string> = {};
+        const orderMap: Record<string, number> = {};
+        if (Array.isArray(d)) d.forEach((n: any) => {
+          noteMap[n.category] = n.notes || '';
+          if (n.sort_order != null) orderMap[n.category] = Number(n.sort_order);
+        });
+        setCatNotes(noteMap);
+        setCatSortOrder(orderMap);
       }
     } catch (err) {
       console.error('Failed to fetch assets:', err);
@@ -90,15 +97,20 @@ export default function AssetsView() {
     return map;
   }, [dailyLogs]);
 
-  // Unique categories derived from data (sorted by first appearance via sort_order)
+  // Unique categories derived from data, ordered by catNotes sort_order then asset sort_order
   const categories = useMemo(() => {
-    const seen = new Map<string, number>(); // category → min sort_order
+    const seen = new Map<string, number>(); // category → min sort_order from assets
     assets.forEach(a => {
       const cat = a.category || 'Other';
       if (!seen.has(cat) || a.sort_order < (seen.get(cat) ?? Infinity)) seen.set(cat, a.sort_order);
     });
-    return Array.from(seen.entries()).sort((a, b) => a[1] - b[1]).map(([cat]) => cat);
-  }, [assets]);
+    return Array.from(seen.keys()).sort((a, b) => {
+      const aOrder = catSortOrder[a] ?? 999;
+      const bOrder = catSortOrder[b] ?? 999;
+      if (aOrder !== bOrder) return aOrder - bOrder;
+      return (seen.get(a) ?? 0) - (seen.get(b) ?? 0);
+    });
+  }, [assets, catSortOrder]);
 
   // Auto-assign colors from palette based on category order
   const catColor = useCallback((cat: string) => {
@@ -122,6 +134,29 @@ export default function AssetsView() {
       return ai - bi;
     });
   }, [assets, categories]);
+
+  // Drag-to-reorder categories
+  const categoryItems = useMemo(() =>
+    grouped.map(([cat]) => ({ id: cat })),
+    [grouped],
+  );
+
+  const handleCatReorder = useCallback(async (next: { id: string }[]) => {
+    const newOrder: Record<string, number> = {};
+    next.forEach((item, i) => { newOrder[item.id] = i; });
+    setCatSortOrder(newOrder);
+    try {
+      await fetch('/api/asset-category-notes', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ categories: next.map(n => n.id) }),
+      });
+    } catch { toast.error('Failed to save order'); }
+  }, []);
+
+  const {
+    draggingId: dragCatId, listRef: catListRef, getItemStyle: getCatStyle,
+    onPointerDown: onCatPointerDown, onPointerMove: onCatPointerMove, onPointerUp: onCatPointerUp,
+  } = useDragReorder(categoryItems, handleCatReorder, true);
 
   // Summary
   const totalAssets = assets.filter(a => a.tracking !== 'daily');
@@ -299,23 +334,39 @@ export default function AssetsView() {
           <p className="text-xs text-gray-300">Add metrics or run the seed SQL to get started</p>
         </div>
       ) : (
-        <div className="space-y-4">
-          {grouped.map(([category, { totals, dailies }]) => {
+        <div
+          ref={catListRef}
+          className="space-y-4"
+          style={{ userSelect: dragCatId ? 'none' : undefined }}
+          onPointerMove={dragCatId ? onCatPointerMove : undefined}
+          onPointerUp={dragCatId ? onCatPointerUp : undefined}
+          onPointerLeave={dragCatId ? onCatPointerUp : undefined}
+        >
+          {grouped.map(([category, { totals, dailies }], catIdx) => {
             const color = catColor(category);
             const collapsed = collapsedCats.has(category);
             const allItems = [...totals, ...dailies];
 
             return (
-              <div key={category} className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+              <div key={category} data-drag-item className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm" style={getCatStyle(catIdx, category)}>
                 {/* Category Header */}
-                <button onClick={() => toggleCategory(category)} className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-gray-50 transition-colors text-left">
-                  <div className={`w-2 h-8 rounded-full ${color}`} />
-                  <div className="flex-1">
-                    <h3 className="text-sm font-semibold text-gray-900">{category}</h3>
+                <div className="flex items-center">
+                  {/* Grip handle */}
+                  <div
+                    className="pl-2 py-3.5 shrink-0 touch-none cursor-grab active:cursor-grabbing flex items-center opacity-30 hover:opacity-100 transition-opacity"
+                    onPointerDown={e => onCatPointerDown(e, category)}
+                  >
+                    <GripVertical size={14} className="text-gray-400" />
+                  </div>
+                  <button onClick={() => toggleCategory(category)} className="flex-1 flex items-center gap-3 px-3 py-3.5 hover:bg-gray-50 transition-colors text-left">
+                    <div className={`w-2 h-8 rounded-full ${color}`} />
+                    <div className="flex-1">
+                      <h3 className="text-sm font-semibold text-gray-900">{category}</h3>
                     <p className="text-xs text-gray-400">{allItems.length} metric{allItems.length !== 1 ? 's' : ''}</p>
                   </div>
-                  {collapsed ? <ChevronRight size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
-                </button>
+                    {collapsed ? <ChevronRight size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+                  </button>
+                </div>
 
                 {/* Category Note */}
                 {!collapsed && (
