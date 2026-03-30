@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { requireAuth, apiHandler } from '@/lib/api-auth';
+import { logAuditServer } from '@/lib/audit-server';
 
 // GET /api/assets
 export const GET = apiHandler(async () => {
@@ -14,7 +15,7 @@ export const GET = apiHandler(async () => {
 
 // POST /api/assets
 export const POST = apiHandler(async (req) => {
-  await requireAuth();
+  const user = await requireAuth();
   const body = await req.json();
   const { category, metric, value, previous_value, direction, tracking, sort_order, notes, department_id } = body;
   const rows = await sql`
@@ -22,12 +23,14 @@ export const POST = apiHandler(async (req) => {
     VALUES (${category}, ${metric}, ${value ?? 0}, ${previous_value ?? 0}, ${direction || 'up_good'}, ${tracking || 'total'}, ${sort_order ?? 0}, ${notes || ''}, ${department_id || null})
     RETURNING *
   `;
+  logAuditServer(user.id, user.email, 'create', 'asset', rows[0].id, { category, metric });
   return NextResponse.json(rows[0], { status: 201 });
 });
 
 // PATCH /api/assets — bulk "end of day" snapshot: copies value → previous_value for all rows
 export const PATCH = apiHandler(async () => {
-  await requireAuth();
+  const user = await requireAuth();
   await sql`UPDATE public.assets SET previous_value = value`;
+  logAuditServer(user.id, user.email, 'update', 'asset', '', { action: 'end_of_day_snapshot' });
   return NextResponse.json({ success: true });
 });

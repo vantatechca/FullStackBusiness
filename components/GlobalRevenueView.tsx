@@ -32,7 +32,7 @@ export default function GlobalRevenueView() {
   const [revenue, setRevenue] = useState<(Revenue & { dept_name: string })[]>([]);
   const [loading, setLoading] = useState(true);
   const { formatDisplay, rates } = useCurrency();
-  const { profile } = useAuth();
+  const { profile, canEdit } = useAuth();
 
   const deptMapRef = useRef<Record<string, string>>({});
 
@@ -219,6 +219,7 @@ export default function GlobalRevenueView() {
         onDelete={handleDelete}
         addLabel="Add Revenue"
         loading={loading}
+        readOnly={!canEdit}
       />
     </div>
   );

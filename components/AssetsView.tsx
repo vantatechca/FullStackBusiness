@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import type { Asset, AssetDailyLog, Department } from '@/lib/types';
 import { useDragReorder } from '@/lib/use-drag-reorder';
+import { useAuth } from '@/lib/auth-context';
 
 const PALETTE = [
   'bg-blue-500', 'bg-violet-500', 'bg-emerald-500', 'bg-rose-500',
@@ -30,6 +31,7 @@ function getLast30Days(): string[] {
 }
 
 export default function AssetsView() {
+  const { canEdit } = useAuth();
   const [assets, setAssets] = useState<Asset[]>([]);
   const [dailyLogs, setDailyLogs] = useState<AssetDailyLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -314,16 +316,18 @@ export default function AssetsView() {
           <h2 className="text-lg font-bold text-gray-900">Business Assets</h2>
           <p className="text-sm text-gray-400 mt-0.5">Daily operational metrics — track what matters</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={handleSnapshot} disabled={snapshotting} className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs font-medium text-gray-600 hover:border-amber-400 hover:text-amber-600 transition-all disabled:opacity-50" title="Save today's totals as 'previous'">
-            <RefreshCw size={13} className={snapshotting ? 'animate-spin' : ''} />
-            End of Day Snapshot
-          </button>
-          <button onClick={() => { resetForm(); setShowForm(true); }} className="flex items-center gap-1.5 px-4 py-2 bg-[#3b82f6] text-white text-sm font-medium rounded-lg hover:bg-[#2563eb] transition-colors shadow-sm">
-            <Plus size={14} />
-            Add Metric
-          </button>
-        </div>
+        {canEdit && (
+          <div className="flex items-center gap-2">
+            <button onClick={handleSnapshot} disabled={snapshotting} className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs font-medium text-gray-600 hover:border-amber-400 hover:text-amber-600 transition-all disabled:opacity-50" title="Save today's totals as 'previous'">
+              <RefreshCw size={13} className={snapshotting ? 'animate-spin' : ''} />
+              End of Day Snapshot
+            </button>
+            <button onClick={() => { resetForm(); setShowForm(true); }} className="flex items-center gap-1.5 px-4 py-2 bg-[#3b82f6] text-white text-sm font-medium rounded-lg hover:bg-[#2563eb] transition-colors shadow-sm">
+              <Plus size={14} />
+              Add Metric
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Summary Cards */}
@@ -412,10 +416,12 @@ export default function AssetsView() {
                         <p className="flex-1 text-xs text-gray-500 leading-relaxed whitespace-pre-wrap">
                           {catNotes[category] || <span className="text-gray-300 italic">No note — click edit to add</span>}
                         </p>
-                        <button onClick={() => startEditCatNote(category)} className="p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 shrink-0 transition-colors" title="Edit note">
-                          <Pencil size={12} />
-                        </button>
-                        {catNotes[category] && (
+                        {canEdit && (
+                          <button onClick={() => startEditCatNote(category)} className="p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 shrink-0 transition-colors" title="Edit note">
+                            <Pencil size={12} />
+                          </button>
+                        )}
+                        {canEdit && catNotes[category] && (
                           <button onClick={() => clearCatNote(category)} className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500 shrink-0 transition-colors" title="Clear note">
                             <Trash2 size={12} />
                           </button>
@@ -437,7 +443,7 @@ export default function AssetsView() {
                             <th className="text-right text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-4 py-2.5 w-28">Previous</th>
                             <th className="text-center text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-4 py-2.5 w-24">Change</th>
                             <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-4 py-2.5">Notes</th>
-                            <th className="w-16"></th>
+                            {canEdit && <th className="w-16"></th>}
                           </tr>
                         </thead>
                         <tbody>
@@ -477,12 +483,14 @@ export default function AssetsView() {
                                     onBlur={e => { if (e.target.value !== asset.notes) handleUpdateNotes(asset.id, e.target.value); }}
                                     placeholder="—" className="w-full px-2 py-1 text-xs text-gray-500 border-0 bg-transparent rounded focus:ring-1 focus:ring-[#3b82f6] outline-none" />
                                 </td>
-                                <td className="px-3 py-3">
-                                  <div className="flex items-center gap-1">
-                                    <button onClick={() => openEdit(asset)} className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600"><Pencil size={12} /></button>
-                                    <button onClick={() => handleDelete(asset.id)} className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"><Trash2 size={12} /></button>
-                                  </div>
-                                </td>
+                                {canEdit && (
+                                  <td className="px-3 py-3">
+                                    <div className="flex items-center gap-1">
+                                      <button onClick={() => openEdit(asset)} className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600"><Pencil size={12} /></button>
+                                      <button onClick={() => handleDelete(asset.id)} className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"><Trash2 size={12} /></button>
+                                    </div>
+                                  </td>
+                                )}
                               </tr>
                             );
                           })}
@@ -545,8 +553,12 @@ export default function AssetsView() {
                                       <button onClick={() => { setCalendarAssetId(asset.id); setCalendarMonth(new Date()); }} className="p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-500 transition-colors" title="View calendar">
                                         <Calendar size={14} />
                                       </button>
-                                      <button onClick={() => openEdit(asset)} className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600"><Pencil size={12} /></button>
-                                      <button onClick={() => handleDelete(asset.id)} className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"><Trash2 size={12} /></button>
+                                      {canEdit && (
+                                        <>
+                                          <button onClick={() => openEdit(asset)} className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600"><Pencil size={12} /></button>
+                                          <button onClick={() => handleDelete(asset.id)} className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"><Trash2 size={12} /></button>
+                                        </>
+                                      )}
                                     </div>
                                   </td>
                                 </tr>

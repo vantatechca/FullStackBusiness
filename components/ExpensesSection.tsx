@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { useRealtimeTable } from '@/lib/realtime';
 import { useCurrency } from '@/lib/currency-context';
 import { useAuth } from '@/lib/auth-context';
+import { logAudit } from '@/lib/audit';
 import { convertToUSD } from '@/lib/exchange-rates';
 import SpreadsheetTable from './SpreadsheetTable';
 import type { Expense, ColumnDef } from '@/lib/types';
@@ -31,7 +32,7 @@ export default function ExpensesSection({ departmentId }: { departmentId: string
     column: 'department_id',
     value: departmentId,
   });
-  const { profile } = useAuth();
+  const { profile, canEdit } = useAuth();
   const { formatDisplay, rates } = useCurrency();
 
   const totalUSD = data.reduce(
@@ -143,6 +144,7 @@ export default function ExpensesSection({ departmentId }: { departmentId: string
         onDelete={handleDelete}
         addLabel="Add Expense"
         loading={loading}
+        readOnly={!canEdit}
       />
     </div>
   );

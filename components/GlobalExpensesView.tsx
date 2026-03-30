@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { useCurrency } from '@/lib/currency-context';
 import { useAuth } from '@/lib/auth-context';
+import { logAudit } from '@/lib/audit';
 import { convertToUSD } from '@/lib/exchange-rates';
 import SpreadsheetTable from './SpreadsheetTable';
 import type { Expense, ColumnDef } from '@/lib/types';
@@ -24,7 +25,7 @@ export default function GlobalExpensesView() {
   const [expenses, setExpenses] = useState<(Expense & { dept_name: string })[]>([]);
   const [loading, setLoading] = useState(true);
   const { formatDisplay, rates } = useCurrency();
-  const { profile } = useAuth();
+  const { profile, canEdit } = useAuth();
   const [filterDept, setFilterDept] = useState<string>('all');
 
   const deptMapRef = useRef<Record<string, string>>({});
@@ -307,6 +308,7 @@ export default function GlobalExpensesView() {
         onDelete={handleDelete}
         addLabel="Add Expense"
         loading={loading}
+        readOnly={!canEdit}
       />
     </div>
   );

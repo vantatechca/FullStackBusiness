@@ -2,7 +2,7 @@ export interface Profile {
   id: string;
   email: string;
   full_name: string;
-  role: 'admin' | 'manager' | 'member';
+  role: 'super_admin' | 'admin' | 'manager' | 'member';
   created_at: string;
 }
 

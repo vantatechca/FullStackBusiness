@@ -29,7 +29,7 @@ export default function RevenueSection({ departmentId }: { departmentId: string 
     column: 'department_id',
     value: departmentId,
   });
-  const { profile } = useAuth();
+  const { profile, canEdit } = useAuth();
   const { formatDisplay, rates } = useCurrency();
 
   const totalUSD = data.reduce(
@@ -139,6 +139,7 @@ export default function RevenueSection({ departmentId }: { departmentId: string 
         onDelete={handleDelete}
         addLabel="Add Revenue"
         loading={loading}
+        readOnly={!canEdit}
       />
     </div>
   );

@@ -174,9 +174,7 @@ export default function Sidebar() {
   const saveTimer    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pathname     = usePathname();
   const router       = useRouter();
-  const { canAccessDepartment, signOut, profile, loading } = useAuth();
-
-  const isAdmin = profile?.role === 'admin';
+  const { canAccessDepartment, signOut, profile, loading, isAdmin } = useAuth();
 
   // ── Drag-to-resize ──────────────────────────────────────────────────────
   const onResizePointerDown = useCallback((e: React.PointerEvent) => {

@@ -458,19 +458,22 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { useRealtimeTable } from '@/lib/realtime';
 import { useCurrency } from '@/lib/currency-context';
 import { DEPARTMENT_ICONS } from '@/lib/departments';
+import { logAudit } from '@/lib/audit';
 import type { Profile, TeamMember } from '@/lib/types';
 import {
   Users, Shield, RefreshCw, Settings,
   CircleCheck as CheckCircle, Circle as XCircle,
   Globe, Activity, Database, CreditCard as Edit2, X, Lock,
+  Plus, Trash2, FileText, Eye, EyeOff, UserPlus, ScrollText,
 } from 'lucide-react';
+import { toast } from 'sonner';
 
-type AdminTab = 'users' | 'exchange-rates' | 'system';
+type AdminTab = 'users' | 'exchange-rates' | 'system' | 'audit-logs';
 
 interface DeptOption {
   id: string;
@@ -512,9 +515,10 @@ function TabButton({ active, onClick, children }: {
 }
 
 const ROLE_CONFIG: Record<string, { style: string; dot: string }> = {
-  admin:   { style: 'bg-red-50 text-red-700 border-red-200',     dot: 'bg-red-400'   },
-  manager: { style: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-400' },
-  member:  { style: 'bg-gray-100 text-gray-600 border-gray-200', dot: 'bg-gray-400'  },
+  super_admin: { style: 'bg-purple-50 text-purple-700 border-purple-200', dot: 'bg-purple-400' },
+  admin:       { style: 'bg-red-50 text-red-700 border-red-200',         dot: 'bg-red-400'    },
+  manager:     { style: 'bg-amber-50 text-amber-700 border-amber-200',   dot: 'bg-amber-400'  },
+  member:      { style: 'bg-gray-100 text-gray-600 border-gray-200',     dot: 'bg-gray-400'   },
 };
 
 function RoleBadge({ role }: { role: string }) {
@@ -529,11 +533,19 @@ function RoleBadge({ role }: { role: string }) {
 
 // ── Users Tab ─────────────────────────────────────────────────────────────────
 function UsersTab({ departments }: { departments: DeptOption[] }) {
-  const { data: profiles, loading, setData } = useRealtimeTable<Profile>('profiles');
+  const { data: profiles, loading, setData, refetch } = useRealtimeTable<Profile>('profiles');
   const { data: teamMembers } = useRealtimeTable<TeamMember>('team_members');
+  const { isSuperAdmin } = useAuth();
   const [editingId,   setEditingId]   = useState<string | null>(null);
   const [editingRole, setEditingRole] = useState<string>('member');
   const [savingId,    setSavingId]    = useState<string | null>(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [newName, setNewName] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [newRole, setNewRole] = useState<string>('member');
+  const [showPassword, setShowPassword] = useState(false);
+  const [creating, setCreating] = useState(false);
 
   const getTeamMember = (email: string) => teamMembers.find(t => t.email === email);
   const getDeptName   = (id: string)    => departments.find(d => d.id === id)?.name || id;
@@ -543,16 +555,60 @@ function UsersTab({ departments }: { departments: DeptOption[] }) {
 
   const saveRole = async (profileId: string) => {
     setSavingId(profileId);
-    await fetch(`/api/profiles/${profileId}`, {
+    const res = await fetch(`/api/profiles/${profileId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ role: editingRole }),
     });
-    setData(prev => prev.map(p =>
-      p.id === profileId ? { ...p, role: editingRole as Profile['role'] } : p
-    ));
+    if (res.ok) {
+      setData(prev => prev.map(p =>
+        p.id === profileId ? { ...p, role: editingRole as Profile['role'] } : p
+      ));
+      const target = profiles.find(p => p.id === profileId);
+      logAudit('update', 'user', profileId, { field: 'role', new_value: editingRole, user_email: target?.email });
+      toast.success('Role updated');
+    } else {
+      toast.error('Failed to update role');
+    }
     setSavingId(null);
     setEditingId(null);
+  };
+
+  const handleCreateUser = async () => {
+    if (!newEmail || !newName || !newPassword) { toast.error('All fields are required'); return; }
+    if (newPassword.length < 6) { toast.error('Password must be at least 6 characters'); return; }
+    setCreating(true);
+    try {
+      const res = await fetch('/api/profiles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: newEmail, full_name: newName, password: newPassword, role: newRole }),
+      });
+      if (res.ok) {
+        const created = await res.json();
+        logAudit('create', 'user', created.id, { email: newEmail, role: newRole });
+        toast.success('User created');
+        setNewEmail(''); setNewName(''); setNewPassword(''); setNewRole('member'); setShowCreateForm(false);
+        await refetch();
+      } else {
+        const err = await res.json();
+        toast.error(err.error || 'Failed to create user');
+      }
+    } catch { toast.error('Failed to create user'); }
+    finally { setCreating(false); }
+  };
+
+  const handleDeleteUser = async (profileId: string, email: string) => {
+    if (!confirm(`Delete user ${email}? This cannot be undone.`)) return;
+    const res = await fetch(`/api/profiles/${profileId}`, { method: 'DELETE' });
+    if (res.ok) {
+      setData(prev => prev.filter(p => p.id !== profileId));
+      logAudit('delete', 'user', profileId, { email });
+      toast.success('User deleted');
+    } else {
+      const err = await res.json();
+      toast.error(err.error || 'Failed to delete user');
+    }
   };
 
   if (loading) {
@@ -568,11 +624,12 @@ function UsersTab({ departments }: { departments: DeptOption[] }) {
   return (
     <div className="space-y-5">
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-4 gap-3">
         {[
-          { label: 'Total Users',  value: profiles.length,                                      color: 'bg-blue-50 border-blue-100 text-blue-600'   },
-          { label: 'Admins',       value: profiles.filter(p => p.role === 'admin').length,      color: 'bg-red-50 border-red-100 text-red-600'       },
-          { label: 'Members',      value: profiles.filter(p => p.role === 'member').length,     color: 'bg-gray-50 border-gray-200 text-gray-600'    },
+          { label: 'Total Users',   value: profiles.length,                                                                          color: 'bg-blue-50 border-blue-100 text-blue-600'     },
+          { label: 'Super Admins',  value: profiles.filter(p => p.role === 'super_admin').length,                                     color: 'bg-purple-50 border-purple-100 text-purple-600' },
+          { label: 'Admins',        value: profiles.filter(p => p.role === 'admin').length,                                           color: 'bg-red-50 border-red-100 text-red-600'         },
+          { label: 'Members',       value: profiles.filter(p => p.role === 'member' || p.role === 'manager').length,                  color: 'bg-gray-50 border-gray-200 text-gray-600'     },
         ].map(s => (
           <div key={s.label} className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${s.color}`}>
             <div>
@@ -583,13 +640,67 @@ function UsersTab({ departments }: { departments: DeptOption[] }) {
         ))}
       </div>
 
+      {/* Create User Button + Form (Super Admin only) */}
+      {isSuperAdmin && (
+        <>
+          {!showCreateForm && (
+            <button onClick={() => setShowCreateForm(true)} className="flex items-center gap-2 px-4 py-2.5 bg-[#3b82f6] text-white text-sm font-medium rounded-xl hover:bg-[#2563eb] transition-colors shadow-sm">
+              <UserPlus size={14} />
+              Create User
+            </button>
+          )}
+          {showCreateForm && (
+            <div className="bg-white border border-blue-200 rounded-2xl p-5 shadow-sm space-y-3">
+              <div className="flex items-center justify-between mb-1">
+                <h3 className="text-sm font-bold text-gray-900">Create New User</h3>
+                <button onClick={() => setShowCreateForm(false)} className="p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"><X size={14} /></button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Full Name *</label>
+                  <input type="text" value={newName} onChange={e => setNewName(e.target.value)} placeholder="John Doe" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#3b82f6] outline-none" />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Email *</label>
+                  <input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="john@example.com" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#3b82f6] outline-none" />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Password *</label>
+                  <div className="relative">
+                    <input type={showPassword ? 'text' : 'password'} value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Min 6 characters" className="w-full px-3 py-2 pr-9 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#3b82f6] outline-none" />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600">
+                      {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Role</label>
+                  <select value={newRole} onChange={e => setNewRole(e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#3b82f6] outline-none bg-white">
+                    <option value="member">Member</option>
+                    <option value="manager">Manager</option>
+                    <option value="admin">Admin</option>
+                    <option value="super_admin">Super Admin</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <button onClick={() => setShowCreateForm(false)} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700">Cancel</button>
+                <button onClick={handleCreateUser} disabled={creating} className="px-5 py-2.5 bg-[#3b82f6] text-white text-sm font-medium rounded-lg hover:bg-[#2563eb] shadow-sm disabled:opacity-50">
+                  {creating ? 'Creating...' : 'Create User'}
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
       {/* Table */}
       <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-        <div className="px-5 py-3 bg-gray-50/80 border-b border-gray-100 grid grid-cols-[2fr_1fr_2fr_1fr] text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+        <div className="px-5 py-3 bg-gray-50/80 border-b border-gray-100 grid grid-cols-[2fr_1fr_2fr_auto] text-[11px] font-bold text-gray-400 uppercase tracking-wider">
           <span>User</span>
           <span>Role</span>
           <span>Departments</span>
-          <span>Status</span>
+          <span>Actions</span>
         </div>
         <div className="divide-y divide-gray-50">
           {profiles.length === 0 && (
@@ -605,7 +716,7 @@ function UsersTab({ departments }: { departments: DeptOption[] }) {
             return (
               <div
                 key={p.id}
-                className="grid grid-cols-[2fr_1fr_2fr_1fr] gap-0 px-5 py-3.5 items-center hover:bg-blue-50/20 transition-colors"
+                className="grid grid-cols-[2fr_1fr_2fr_auto] gap-0 px-5 py-3.5 items-center hover:bg-blue-50/20 transition-colors"
               >
                 {/* User */}
                 <div className="flex items-center gap-3 min-w-0">
@@ -620,7 +731,7 @@ function UsersTab({ departments }: { departments: DeptOption[] }) {
 
                 {/* Role */}
                 <div>
-                  {isEditing ? (
+                  {isEditing && isSuperAdmin ? (
                     <div className="flex items-center gap-1">
                       <select
                         value={editingRole}
@@ -628,6 +739,7 @@ function UsersTab({ departments }: { departments: DeptOption[] }) {
                         disabled={savingId === p.id}
                         className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:ring-1 focus:ring-blue-300 outline-none bg-white"
                       >
+                        <option value="super_admin">super_admin</option>
                         <option value="admin">admin</option>
                         <option value="manager">manager</option>
                         <option value="member">member</option>
@@ -637,7 +749,7 @@ function UsersTab({ departments }: { departments: DeptOption[] }) {
                         disabled={savingId === p.id}
                         className="text-[11px] font-semibold text-white bg-[#3b82f6] hover:bg-[#2563eb] px-2 py-1 rounded-lg transition-colors disabled:opacity-50"
                       >
-                        {savingId === p.id ? '…' : 'Save'}
+                        {savingId === p.id ? '...' : 'Save'}
                       </button>
                       <button onClick={cancelEdit} className="p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100">
                         <X size={13} />
@@ -646,12 +758,14 @@ function UsersTab({ departments }: { departments: DeptOption[] }) {
                   ) : (
                     <div className="flex items-center gap-1.5 group">
                       <RoleBadge role={p.role} />
-                      <button
-                        onClick={() => startEdit(p.id, p.role)}
-                        className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-all"
-                      >
-                        <Edit2 size={11} />
-                      </button>
+                      {isSuperAdmin && (
+                        <button
+                          onClick={() => startEdit(p.id, p.role)}
+                          className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-all"
+                        >
+                          <Edit2 size={11} />
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -659,7 +773,7 @@ function UsersTab({ departments }: { departments: DeptOption[] }) {
                 {/* Departments */}
                 <div className="flex flex-wrap gap-1 pr-4">
                   {depts.length === 0 ? (
-                    <span className="text-xs text-gray-400 italic">All (admin)</span>
+                    <span className="text-xs text-gray-400 italic">{p.role === 'admin' || p.role === 'super_admin' ? 'All (admin)' : 'None assigned'}</span>
                   ) : (
                     <>
                       {depts.slice(0, 3).map(d => (
@@ -676,12 +790,17 @@ function UsersTab({ departments }: { departments: DeptOption[] }) {
                   )}
                 </div>
 
-                {/* Status */}
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-100">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                    Active
-                  </span>
+                {/* Actions */}
+                <div className="flex items-center gap-1">
+                  {isSuperAdmin && (
+                    <button
+                      onClick={() => handleDeleteUser(p.id, p.email)}
+                      className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-all"
+                      title="Delete user"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -699,9 +818,10 @@ function UsersTab({ departments }: { departments: DeptOption[] }) {
             <p className="text-sm font-semibold text-amber-800 mb-1.5">Role Permissions</p>
             <div className="space-y-1">
               {[
-                { role: 'Admin',   desc: 'Full access to all departments, team, and admin panel', dot: 'bg-red-400'   },
-                { role: 'Manager', desc: 'Access to all departments, no admin panel',             dot: 'bg-amber-400' },
-                { role: 'Member',  desc: 'Access only to departments assigned in Team Members',   dot: 'bg-gray-400'  },
+                { role: 'Super Admin', desc: 'Everything + user management, credentials, and audit logs', dot: 'bg-purple-400' },
+                { role: 'Admin',       desc: 'Full access to all departments — can see, edit, and delete everything', dot: 'bg-red-400'    },
+                { role: 'Manager',     desc: 'Access to all departments, no admin panel',                             dot: 'bg-amber-400'  },
+                { role: 'Member',      desc: 'Access only to assigned departments and tasks. Team leads can edit assigned metrics', dot: 'bg-gray-400'   },
               ].map(r => (
                 <div key={r.role} className="flex items-start gap-2 text-xs text-amber-700">
                   <span className={`w-1.5 h-1.5 rounded-full ${r.dot} shrink-0 mt-1`} />
@@ -913,13 +1033,143 @@ function SystemTab({ departments, deptsLoading }: { departments: DeptOption[]; d
   );
 }
 
+// ── Audit Logs Tab (Super Admin only) ────────────────────────────────────────
+interface AuditLog {
+  id: string;
+  user_id: string | null;
+  user_email: string;
+  action: string;
+  entity_type: string;
+  entity_id: string;
+  details: Record<string, any>;
+  created_at: string;
+}
+
+const ACTION_COLORS: Record<string, string> = {
+  login:        'bg-blue-50 text-blue-700 border-blue-200',
+  login_failed: 'bg-red-50 text-red-700 border-red-200',
+  create:       'bg-emerald-50 text-emerald-700 border-emerald-200',
+  update:       'bg-amber-50 text-amber-700 border-amber-200',
+  delete:       'bg-rose-50 text-rose-700 border-rose-200',
+};
+
+function AuditLogsTab() {
+  const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filterAction, setFilterAction] = useState<string>('');
+  const [filterEntity, setFilterEntity] = useState<string>('');
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 50;
+
+  const fetchLogs = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.set('limit', String(PAGE_SIZE));
+      params.set('offset', String(page * PAGE_SIZE));
+      if (filterAction) params.set('action', filterAction);
+      if (filterEntity) params.set('entity_type', filterEntity);
+      const res = await fetch(`/api/audit-logs?${params}`);
+      if (res.ok) {
+        setLogs(await res.json());
+      }
+    } catch { /* silent */ }
+    finally { setLoading(false); }
+  }, [page, filterAction, filterEntity]);
+
+  useEffect(() => { fetchLogs(); }, [fetchLogs]);
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h3 className="font-semibold text-gray-900">Audit Logs</h3>
+        <p className="text-sm text-gray-400 mt-0.5">All user actions across the system</p>
+      </div>
+
+      {/* Filters */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <select value={filterAction} onChange={e => { setFilterAction(e.target.value); setPage(0); }} className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#3b82f6] outline-none bg-white">
+          <option value="">All Actions</option>
+          <option value="login">Login</option>
+          <option value="login_failed">Login Failed</option>
+          <option value="create">Create</option>
+          <option value="update">Update</option>
+          <option value="delete">Delete</option>
+        </select>
+        <select value={filterEntity} onChange={e => { setFilterEntity(e.target.value); setPage(0); }} className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#3b82f6] outline-none bg-white">
+          <option value="">All Entities</option>
+          <option value="user">User</option>
+          <option value="expense">Expense</option>
+          <option value="revenue">Revenue</option>
+          <option value="asset">Asset / Metric</option>
+          <option value="task">Task</option>
+          <option value="department">Department</option>
+          <option value="session">Session</option>
+        </select>
+        <button onClick={fetchLogs} className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50">
+          <RefreshCw size={13} />
+          Refresh
+        </button>
+      </div>
+
+      {/* Logs table */}
+      <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+        <div className="px-5 py-3 bg-gray-50/80 border-b border-gray-100 grid grid-cols-[140px_1fr_100px_100px_2fr] text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+          <span>Timestamp</span>
+          <span>User</span>
+          <span>Action</span>
+          <span>Entity</span>
+          <span>Details</span>
+        </div>
+        <div className="divide-y divide-gray-50 max-h-[600px] overflow-y-auto">
+          {loading && logs.length === 0 && (
+            <div className="px-5 py-12 text-center text-sm text-gray-400">Loading...</div>
+          )}
+          {!loading && logs.length === 0 && (
+            <div className="px-5 py-12 text-center text-sm text-gray-400">No audit logs found</div>
+          )}
+          {logs.map(log => (
+            <div key={log.id} className="grid grid-cols-[140px_1fr_100px_100px_2fr] gap-0 px-5 py-2.5 items-center hover:bg-gray-50/60 transition-colors text-sm">
+              <span className="text-xs text-gray-400 tabular-nums">
+                {new Date(log.created_at).toLocaleDateString()} {new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+              <span className="text-xs text-gray-700 font-medium truncate pr-2">{log.user_email || '—'}</span>
+              <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold border w-fit ${ACTION_COLORS[log.action] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+                {log.action}
+              </span>
+              <span className="text-xs text-gray-500">{log.entity_type || '—'}</span>
+              <span className="text-xs text-gray-400 truncate">
+                {log.entity_id && <span className="text-gray-500 font-mono mr-1">{log.entity_id.slice(0, 8)}</span>}
+                {log.details && Object.keys(log.details).length > 0
+                  ? Object.entries(log.details).map(([k, v]) => `${k}: ${v}`).join(', ')
+                  : ''}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Pagination */}
+      <div className="flex items-center justify-between">
+        <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0} className="px-3 py-1.5 text-xs font-medium text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40">
+          Previous
+        </button>
+        <span className="text-xs text-gray-400">Page {page + 1}</span>
+        <button onClick={() => setPage(p => p + 1)} disabled={logs.length < PAGE_SIZE} className="px-3 py-1.5 text-xs font-medium text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40">
+          Next
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState<AdminTab>('users');
-  const { profile } = useAuth();
+  const { profile, isAdmin, isSuperAdmin } = useAuth();
   const { departments, loading: deptsLoading } = useDepartments();
 
-  if (profile?.role !== 'admin') {
+  if (!isAdmin) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center">
         <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
@@ -931,17 +1181,20 @@ export default function AdminPanel() {
     );
   }
 
-  const tabs: { key: AdminTab; label: string; icon: React.ReactNode }[] = [
-    { key: 'users',          label: 'Users & Roles',   icon: <Users size={14} />    },
-    { key: 'exchange-rates', label: 'Exchange Rates',  icon: <Globe size={14} />    },
-    { key: 'system',         label: 'System',          icon: <Settings size={14} /> },
+  const tabs: { key: AdminTab; label: string; icon: React.ReactNode; superOnly?: boolean }[] = [
+    { key: 'users',          label: 'Users & Roles',   icon: <Users size={14} />      },
+    { key: 'exchange-rates', label: 'Exchange Rates',  icon: <Globe size={14} />      },
+    { key: 'system',         label: 'System',          icon: <Settings size={14} />   },
+    { key: 'audit-logs',     label: 'Audit Logs',      icon: <ScrollText size={14} />, superOnly: true },
   ];
+
+  const visibleTabs = tabs.filter(t => !t.superOnly || isSuperAdmin);
 
   return (
     <div className="space-y-6">
       {/* Tab bar */}
       <div className="flex items-center gap-1 bg-gray-100 rounded-2xl p-1 w-fit">
-        {tabs.map(t => (
+        {visibleTabs.map(t => (
           <TabButton key={t.key} active={activeTab === t.key} onClick={() => setActiveTab(t.key)}>
             {t.icon}
             {t.label}
@@ -952,6 +1205,7 @@ export default function AdminPanel() {
       {activeTab === 'users'          && <UsersTab departments={departments} />}
       {activeTab === 'exchange-rates' && <ExchangeRatesTab />}
       {activeTab === 'system'         && <SystemTab departments={departments} deptsLoading={deptsLoading} />}
+      {activeTab === 'audit-logs' && isSuperAdmin && <AuditLogsTab />}
     </div>
   );
 }
