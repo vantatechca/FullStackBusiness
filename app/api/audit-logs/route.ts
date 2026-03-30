@@ -17,57 +17,66 @@ export const GET = apiHandler(async (req) => {
   const entityType = searchParams.get('entity_type');
   const userId = searchParams.get('user_id');
 
-  let rows;
-  if (action && entityType && userId) {
-    rows = await sql`
-      SELECT * FROM public.audit_logs
-      WHERE action = ${action} AND entity_type = ${entityType} AND user_id = ${userId}::uuid
-      ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}
-    `;
-  } else if (action && entityType) {
-    rows = await sql`
-      SELECT * FROM public.audit_logs
-      WHERE action = ${action} AND entity_type = ${entityType}
-      ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}
-    `;
-  } else if (action) {
-    rows = await sql`
-      SELECT * FROM public.audit_logs
-      WHERE action = ${action}
-      ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}
-    `;
-  } else if (entityType) {
-    rows = await sql`
-      SELECT * FROM public.audit_logs
-      WHERE entity_type = ${entityType}
-      ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}
-    `;
-  } else if (userId) {
-    rows = await sql`
-      SELECT * FROM public.audit_logs
-      WHERE user_id = ${userId}::uuid
-      ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}
-    `;
-  } else {
-    rows = await sql`
-      SELECT * FROM public.audit_logs
-      ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}
-    `;
-  }
+  try {
+    // Build query based on filters
+    let rows;
+    if (action && entityType) {
+      rows = await sql`
+        SELECT * FROM public.audit_logs
+        WHERE action = ${action} AND entity_type = ${entityType}
+        ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}
+      `;
+    } else if (action) {
+      rows = await sql`
+        SELECT * FROM public.audit_logs
+        WHERE action = ${action}
+        ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}
+      `;
+    } else if (entityType) {
+      rows = await sql`
+        SELECT * FROM public.audit_logs
+        WHERE entity_type = ${entityType}
+        ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}
+      `;
+    } else if (userId) {
+      rows = await sql`
+        SELECT * FROM public.audit_logs
+        WHERE user_id = ${userId}::uuid
+        ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}
+      `;
+    } else {
+      rows = await sql`
+        SELECT * FROM public.audit_logs
+        ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}
+      `;
+    }
 
-  return NextResponse.json(rows);
+    return NextResponse.json(rows);
+  } catch (err: any) {
+    console.error('Audit logs query error:', err?.message || err);
+    // Table might not exist yet
+    if (err?.message?.includes('does not exist') || err?.message?.includes('relation')) {
+      return NextResponse.json([], { status: 200 });
+    }
+    return NextResponse.json({ error: 'Failed to fetch audit logs' }, { status: 500 });
+  }
 });
 
-// POST /api/audit-logs — internal use, logs an action
+// POST /api/audit-logs — logs an action (any authenticated user)
 export const POST = apiHandler(async (req) => {
   const user = await requireAuth();
   const body = await req.json();
   const { action, entity_type, entity_id, details } = body;
 
-  await sql`
-    INSERT INTO public.audit_logs (user_id, user_email, action, entity_type, entity_id, details)
-    VALUES (${user.id}, ${user.email}, ${action}, ${entity_type || ''}, ${entity_id || ''}, ${JSON.stringify(details || {})})
-  `;
-
-  return NextResponse.json({ success: true }, { status: 201 });
+  try {
+    await sql`
+      INSERT INTO public.audit_logs (user_id, user_email, action, entity_type, entity_id, details)
+      VALUES (${user.id}, ${user.email}, ${action}, ${entity_type || ''}, ${entity_id || ''}, ${JSON.stringify(details || {})})
+    `;
+    return NextResponse.json({ success: true }, { status: 201 });
+  } catch (err: any) {
+    console.error('Audit log insert error:', err?.message || err);
+    // Don't fail the whole request if audit logging fails
+    return NextResponse.json({ success: false, error: err?.message }, { status: 200 });
+  }
 });

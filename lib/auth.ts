@@ -10,7 +10,9 @@ async function logAuthEvent(action: string, userId: string | null, email: string
       INSERT INTO public.audit_logs (user_id, user_email, action, entity_type, entity_id, details)
       VALUES (${userId}, ${email}, ${action}, 'session', '', ${JSON.stringify(details || {})})
     `;
-  } catch { /* silent — never block auth flow */ }
+  } catch (err: any) {
+    console.error('[auth] Failed to log auth event:', action, err?.message || err);
+  }
 }
 
 export interface UserProfile {

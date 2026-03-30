@@ -5,5 +5,7 @@ export function logAuditServer(userId: string, userEmail: string, action: string
   sql`
     INSERT INTO public.audit_logs (user_id, user_email, action, entity_type, entity_id, details)
     VALUES (${userId}, ${userEmail}, ${action}, ${entityType}, ${entityId || ''}, ${JSON.stringify(details || {})})
-  `.catch(() => {}); // silent
+  `.catch((err: any) => {
+    console.error('[audit-server] Failed to log:', action, entityType, err?.message || err);
+  });
 }
