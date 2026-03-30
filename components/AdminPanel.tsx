@@ -568,7 +568,8 @@ function UsersTab({ departments }: { departments: DeptOption[] }) {
       logAudit('update', 'user', profileId, { field: 'role', new_value: editingRole, user_email: target?.email });
       toast.success('Role updated');
     } else {
-      toast.error('Failed to update role');
+      const err = await res.json().catch(() => ({}));
+      toast.error(err.error || `Failed to update role (${res.status})`);
     }
     setSavingId(null);
     setEditingId(null);
@@ -594,7 +595,7 @@ function UsersTab({ departments }: { departments: DeptOption[] }) {
         const err = await res.json();
         toast.error(err.error || 'Failed to create user');
       }
-    } catch { toast.error('Failed to create user'); }
+    } catch (e: any) { toast.error(e?.message || 'Failed to create user — network error'); }
     finally { setCreating(false); }
   };
 

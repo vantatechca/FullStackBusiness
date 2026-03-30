@@ -45,9 +45,10 @@ export const POST = apiHandler(async (req) => {
 
   const password_hash = await bcrypt.hash(password, 12);
 
+  // Use gen_random_uuid() explicitly for the id in case DEFAULT is not set
   const rows = await sql`
-    INSERT INTO public.profiles (email, full_name, role, password_hash)
-    VALUES (${email}, ${full_name}, ${role || 'member'}, ${password_hash})
+    INSERT INTO public.profiles (id, email, full_name, role, password_hash)
+    VALUES (gen_random_uuid(), ${email}, ${full_name}, ${role || 'member'}, ${password_hash})
     RETURNING id, email, full_name, role, created_at
   `;
   logAuditServer(user.id, user.email, 'create', 'user', rows[0].id, { new_user_email: email, role: role || 'member' });
