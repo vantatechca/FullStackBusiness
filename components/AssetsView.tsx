@@ -7,7 +7,7 @@ import {
   ArrowUpRight, ArrowDownRight, Minus, Plus, X, ChevronDown, ChevronRight,
   Pencil, Trash2, RefreshCw, BarChart3, Check, GripVertical, Calendar, ChevronLeft,
 } from 'lucide-react';
-import type { Asset, AssetDailyLog } from '@/lib/types';
+import type { Asset, AssetDailyLog, Department } from '@/lib/types';
 import { useDragReorder } from '@/lib/use-drag-reorder';
 
 const PALETTE = [
@@ -54,10 +54,19 @@ export default function AssetsView() {
   const [formDirection, setFormDirection] = useState<'up_good' | 'down_good'>('up_good');
   const [formTracking, setFormTracking] = useState<'total' | 'daily'>('total');
   const [formNotes, setFormNotes] = useState('');
+  const [formDepartmentId, setFormDepartmentId] = useState<string>('');
   const [formSortOrder, setFormSortOrder] = useState('0');
   const [submitting, setSubmitting] = useState(false);
 
+  // Departments for optional assignment
+  const [departments, setDepartments] = useState<Department[]>([]);
+
   const last30 = useMemo(() => getLast30Days(), []);
+  const deptMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    departments.forEach(d => { m[d.id] = d.name; });
+    return m;
+  }, [departments]);
 
   const fetchAssets = useCallback(async () => {
     try {
@@ -87,6 +96,14 @@ export default function AssetsView() {
   }, []);
 
   useEffect(() => { fetchAssets(); }, [fetchAssets]);
+
+  // Fetch departments once
+  useEffect(() => {
+    fetch('/api/table-data?table=departments')
+      .then(r => r.ok ? r.json() : [])
+      .then(d => { if (Array.isArray(d)) setDepartments(d.filter((dept: any) => dept.type === 'standard' || dept.type === 'gmb' || dept.type === 'influencers' || dept.type === 'restock').sort((a: any, b: any) => a.sort_order - b.sort_order)); })
+      .catch(() => {});
+  }, []);
 
   // Build a lookup: asset_id → { date → value }
   const logMap = useMemo(() => {
@@ -248,7 +265,7 @@ export default function AssetsView() {
 
   const resetForm = () => {
     setFormCategory(''); setFormCategoryCustom(false); setFormMetric(''); setFormValue('0');
-    setFormDirection('up_good'); setFormTracking('total'); setFormNotes(''); setFormSortOrder('0');
+    setFormDirection('up_good'); setFormTracking('total'); setFormNotes(''); setFormDepartmentId(''); setFormSortOrder('0');
     setEditingId(null);
   };
 
@@ -256,7 +273,7 @@ export default function AssetsView() {
     setEditingId(a.id); setFormCategory(a.category); setFormCategoryCustom(false); setFormMetric(a.metric);
     setFormValue(String(a.value)); setFormDirection(a.direction);
     setFormTracking(a.tracking || 'total');
-    setFormNotes(a.notes); setFormSortOrder(String(a.sort_order));
+    setFormNotes(a.notes); setFormDepartmentId(a.department_id || ''); setFormSortOrder(String(a.sort_order));
     setShowForm(true);
   };
 
@@ -268,7 +285,7 @@ export default function AssetsView() {
       category: formCategory, metric: formMetric.trim(),
       value: Number(formValue) || 0, direction: formDirection,
       tracking: formTracking,
-      notes: formNotes, sort_order: Number(formSortOrder) || 0,
+      notes: formNotes, department_id: formDepartmentId || null, sort_order: Number(formSortOrder) || 0,
     };
     try {
       if (editingId) {
@@ -430,7 +447,14 @@ export default function AssetsView() {
                             const isBad = asset.direction === 'up_good' ? delta < 0 : delta > 0;
                             return (
                               <tr key={asset.id} className={`border-b border-gray-50 last:border-b-0 hover:bg-gray-50/60 transition-colors ${idx % 2 === 1 ? 'bg-gray-50/30' : ''}`}>
-                                <td className="px-5 py-3 text-sm font-medium text-gray-700">{asset.metric}</td>
+                                <td className="px-5 py-3">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium text-gray-700">{asset.metric}</span>
+                                    {asset.department_id && deptMap[asset.department_id] && (
+                                      <span className="text-[9px] px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded font-semibold">{deptMap[asset.department_id]}</span>
+                                    )}
+                                  </div>
+                                </td>
                                 <td className="px-4 py-3 text-right">
                                   <input type="number" defaultValue={asset.value} key={`v-${asset.id}-${asset.value}`}
                                     onBlur={e => { const v = Number(e.target.value); if (!isNaN(v) && v !== asset.value) handleUpdateValue(asset.id, v); }}
@@ -496,6 +520,9 @@ export default function AssetsView() {
                                       <span className="text-sm font-medium text-gray-700">{asset.metric}</span>
                                       {asset.direction === 'down_good' && (
                                         <span className="text-[9px] px-1 py-0.5 bg-amber-50 text-amber-600 rounded font-semibold">lower=better</span>
+                                      )}
+                                      {asset.department_id && deptMap[asset.department_id] && (
+                                        <span className="text-[9px] px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded font-semibold">{deptMap[asset.department_id]}</span>
                                       )}
                                     </div>
                                   </td>
@@ -619,6 +646,18 @@ export default function AssetsView() {
                 <label className={labelCls}>Notes</label>
                 <input type="text" value={formNotes} onChange={e => setFormNotes(e.target.value)} placeholder="Optional context" className={inputCls} />
               </div>
+              {departments.length > 0 && (
+                <div>
+                  <label className={labelCls}>Department <span className="text-gray-400 font-normal normal-case">(optional)</span></label>
+                  <div className="relative">
+                    <select value={formDepartmentId} onChange={e => setFormDepartmentId(e.target.value)} className={selectCls}>
+                      <option value="">None (Global)</option>
+                      {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                    </select>
+                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  </div>
+                </div>
+              )}
             </div>
             <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 bg-gray-50/50">
               <button onClick={() => { setShowForm(false); resetForm(); }} className="px-4 py-2 text-sm text-gray-500">Cancel</button>

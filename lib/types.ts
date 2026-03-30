@@ -28,7 +28,7 @@ export interface Revenue {
 
 export interface Expense {
   id: string;
-  department_id: string;
+  department_id: string | null;
   task_id: string | null;
   date: string;
   description: string;
@@ -178,6 +178,7 @@ export interface Asset {
   tracking: 'total' | 'daily';
   sort_order: number;
   notes: string;
+  department_id: string | null;
   updated_at: string;
   created_at: string;
 }
