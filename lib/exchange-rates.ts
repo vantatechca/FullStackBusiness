@@ -212,7 +212,8 @@ export function formatCurrencyValue(amount: number, currency: string): string {
     return `${amount.toFixed(8)} BTC`;
   }
   if (currency === 'USDT') {
-    return `${Math.abs(amount).toLocaleString('en-US', {
+    const sign = amount < 0 ? '-' : '';
+    return `${sign}${Math.abs(amount).toLocaleString('en-US', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })} USDT`;
@@ -228,7 +229,8 @@ export function formatCurrencyValue(amount: number, currency: string): string {
   };
 
   const symbol = symbols[currency] ?? currency + ' ';
-  return `${symbol}${Math.abs(amount).toLocaleString('en-US', {
+  const sign = amount < 0 ? '-' : '';
+  return `${sign}${symbol}${Math.abs(amount).toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
