@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { format, subDays } from 'date-fns';
 import {
   ArrowUpRight, ArrowDownRight, Minus, Plus, X, ChevronDown, ChevronRight,
-  Pencil, Trash2, RefreshCw, BarChart3, Check, GripVertical,
+  Pencil, Trash2, RefreshCw, BarChart3, Check, GripVertical, Calendar, ChevronLeft,
 } from 'lucide-react';
 import type { Asset, AssetDailyLog } from '@/lib/types';
 import { useDragReorder } from '@/lib/use-drag-reorder';
@@ -37,6 +37,8 @@ export default function AssetsView() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [snapshotting, setSnapshotting] = useState(false);
+  const [calendarAssetId, setCalendarAssetId] = useState<string | null>(null);
+  const [calendarMonth, setCalendarMonth] = useState(new Date());
 
   // Category notes + sort order
   const [catNotes, setCatNotes] = useState<Record<string, string>>({});
@@ -464,88 +466,61 @@ export default function AssetsView() {
                       </table>
                     )}
 
-                    {/* ── DAILY metrics 30-day grid ── */}
+                    {/* ── DAILY metrics rows ── */}
                     {dailies.length > 0 && (
                       <div className={totals.length > 0 ? 'border-t border-gray-200' : ''}>
-                        <div className="px-5 py-2.5 bg-blue-50/50 border-b border-blue-100 flex items-center justify-between">
-                          <p className="text-[11px] font-semibold text-blue-600 uppercase tracking-wider">Daily Tracking (30 Days)</p>
-                          <div className="flex items-center gap-1">
-                            {dailies.map(a => (
-                              <div key={a.id} className="flex items-center gap-1">
-                                <button onClick={() => openEdit(a)} className="p-0.5 rounded hover:bg-blue-100 text-blue-400 hover:text-blue-600"><Pencil size={10} /></button>
-                                <button onClick={() => handleDelete(a.id)} className="p-0.5 rounded hover:bg-red-100 text-blue-400 hover:text-red-500"><Trash2 size={10} /></button>
-                              </div>
-                            ))}
-                          </div>
+                        <div className="px-5 py-2.5 bg-blue-50/50 border-b border-blue-100">
+                          <p className="text-[11px] font-semibold text-blue-600 uppercase tracking-wider">Daily Tracking</p>
                         </div>
-                        <div className="overflow-x-auto">
-                          <table className="text-xs min-w-max">
-                            <thead>
-                              <tr className="border-b border-gray-100">
-                                <th className="text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-4 py-2 sticky left-0 bg-white z-10 min-w-[180px]">Metric</th>
-                                {last30.map(date => {
-                                  const d = new Date(date + 'T12:00:00');
-                                  const isToday = date === format(new Date(), 'yyyy-MM-dd');
-                                  return (
-                                    <th key={date} className={`text-center px-1 py-2 min-w-[52px] ${isToday ? 'bg-blue-50' : ''}`}>
-                                      <div className="text-[9px] text-gray-400 font-medium">{format(d, 'MMM')}</div>
-                                      <div className={`text-[11px] font-bold ${isToday ? 'text-blue-600' : 'text-gray-600'}`}>{format(d, 'd')}</div>
-                                    </th>
-                                  );
-                                })}
-                                <th className="text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-3 py-2 min-w-[60px]">Total</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {dailies.map((asset, idx) => {
-                                const assetLogs = logMap[asset.id] || {};
-                                const total30 = last30.reduce((s, d) => s + (assetLogs[d] || 0), 0);
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-gray-100 bg-gray-50/60">
+                              <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-5 py-2.5">Metric</th>
+                              <th className="text-right text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-4 py-2.5 w-28">Today</th>
+                              <th className="text-right text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-4 py-2.5 w-28">30-Day Total</th>
+                              <th className="w-28"></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {dailies.map((asset, idx) => {
+                              const assetLogs = logMap[asset.id] || {};
+                              const todayStr = format(new Date(), 'yyyy-MM-dd');
+                              const todayVal = assetLogs[todayStr] ?? '';
+                              const total30 = last30.reduce((s, d) => s + (assetLogs[d] || 0), 0);
 
-                                return (
-                                  <tr key={asset.id} className={`border-b border-gray-50 last:border-b-0 ${idx % 2 === 1 ? 'bg-gray-50/30' : ''}`}>
-                                    <td className="px-4 py-2 font-medium text-gray-700 sticky left-0 bg-white z-10 border-r border-gray-100">
-                                      <div className="flex items-center gap-1.5">
-                                        <span>{asset.metric}</span>
-                                        {asset.direction === 'down_good' && (
-                                          <span className="text-[9px] px-1 py-0.5 bg-amber-50 text-amber-600 rounded font-semibold">lower=better</span>
-                                        )}
-                                      </div>
-                                    </td>
-                                    {last30.map(date => {
-                                      const val = assetLogs[date];
-                                      const isToday = date === format(new Date(), 'yyyy-MM-dd');
-                                      return (
-                                        <td key={date} className={`px-0.5 py-1 text-center ${isToday ? 'bg-blue-50' : ''}`}>
-                                          <input
-                                            type="number"
-                                            defaultValue={val ?? ''}
-                                            key={`dl-${asset.id}-${date}-${val}`}
-                                            onBlur={e => {
-                                              const v = Number(e.target.value);
-                                              if (e.target.value !== '' && !isNaN(v) && v !== (val ?? -1)) {
-                                                handleDailyLogUpdate(asset.id, date, v);
-                                              }
-                                            }}
-                                            onKeyDown={e => {
-                                              if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                                            }}
-                                            placeholder="·"
-                                            className={`w-12 text-center px-0 py-1 border rounded text-[11px] tabular-nums outline-none focus:ring-1 focus:ring-[#3b82f6] ${
-                                              val != null && val > 0 ? 'border-gray-200 font-semibold text-gray-900 bg-white' : 'border-transparent text-gray-300 bg-transparent'
-                                            }`}
-                                          />
-                                        </td>
-                                      );
-                                    })}
-                                    <td className="px-3 py-2 text-center font-bold text-gray-900 tabular-nums border-l border-gray-100">
-                                      {total30.toLocaleString()}
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
+                              return (
+                                <tr key={asset.id} className={`border-b border-gray-50 last:border-b-0 hover:bg-gray-50/60 transition-colors ${idx % 2 === 1 ? 'bg-gray-50/30' : ''}`}>
+                                  <td className="px-5 py-3">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-sm font-medium text-gray-700">{asset.metric}</span>
+                                      {asset.direction === 'down_good' && (
+                                        <span className="text-[9px] px-1 py-0.5 bg-amber-50 text-amber-600 rounded font-semibold">lower=better</span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3 text-right">
+                                    <input type="number" defaultValue={todayVal} key={`td-${asset.id}-${todayVal}`}
+                                      onBlur={e => { const v = Number(e.target.value); if (e.target.value !== '' && !isNaN(v) && v !== (todayVal || -1)) handleDailyLogUpdate(asset.id, todayStr, v); }}
+                                      onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                                      placeholder="0"
+                                      className="w-20 text-right px-2 py-1 border border-gray-200 rounded-lg text-sm font-semibold text-gray-900 focus:ring-2 focus:ring-[#3b82f6] outline-none tabular-nums"
+                                    />
+                                  </td>
+                                  <td className="px-4 py-3 text-right text-sm font-bold text-gray-900 tabular-nums">{total30.toLocaleString()}</td>
+                                  <td className="px-3 py-3">
+                                    <div className="flex items-center justify-end gap-1">
+                                      <button onClick={() => { setCalendarAssetId(asset.id); setCalendarMonth(new Date()); }} className="p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-500 transition-colors" title="View calendar">
+                                        <Calendar size={14} />
+                                      </button>
+                                      <button onClick={() => openEdit(asset)} className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600"><Pencil size={12} /></button>
+                                      <button onClick={() => handleDelete(asset.id)} className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"><Trash2 size={12} /></button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                       </div>
                     )}
                   </div>
@@ -648,6 +623,108 @@ export default function AssetsView() {
           </div>
         </div>
       )}
+
+      {/* Calendar Modal */}
+      {calendarAssetId && (() => {
+        const asset = assets.find(a => a.id === calendarAssetId);
+        if (!asset) return null;
+        const assetLogs = logMap[calendarAssetId] || {};
+
+        // Build calendar grid for the selected month
+        const year = calendarMonth.getFullYear();
+        const month = calendarMonth.getMonth();
+        const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const weeks: (number | null)[][] = [];
+        let week: (number | null)[] = Array(firstDay).fill(null);
+        for (let d = 1; d <= daysInMonth; d++) {
+          week.push(d);
+          if (week.length === 7) { weeks.push(week); week = []; }
+        }
+        if (week.length > 0) { while (week.length < 7) week.push(null); weeks.push(week); }
+
+        const monthTotal = Array.from({ length: daysInMonth }, (_, i) => {
+          const dateStr = format(new Date(year, month, i + 1), 'yyyy-MM-dd');
+          return assetLogs[dateStr] || 0;
+        }).reduce((a, b) => a + b, 0);
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setCalendarAssetId(null)} />
+            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+              {/* Header */}
+              <div className="px-6 py-4 border-b border-gray-100">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-bold text-gray-900">{asset.metric}</h2>
+                  <button onClick={() => setCalendarAssetId(null)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400"><X size={18} /></button>
+                </div>
+                <p className="text-xs text-gray-400 mt-0.5">Click any day to enter a value</p>
+              </div>
+
+              {/* Month navigation */}
+              <div className="flex items-center justify-between px-6 py-3 border-b border-gray-50">
+                <button onClick={() => setCalendarMonth(new Date(year, month - 1, 1))} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500">
+                  <ChevronLeft size={16} />
+                </button>
+                <span className="text-sm font-semibold text-gray-900">{format(calendarMonth, 'MMMM yyyy')}</span>
+                <button onClick={() => setCalendarMonth(new Date(year, month + 1, 1))} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500">
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+
+              {/* Calendar Grid */}
+              <div className="px-6 py-4">
+                {/* Day headers */}
+                <div className="grid grid-cols-7 gap-1 mb-2">
+                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+                    <div key={d} className="text-center text-[10px] font-semibold text-gray-400 uppercase">{d}</div>
+                  ))}
+                </div>
+                {/* Weeks */}
+                {weeks.map((wk, wi) => (
+                  <div key={wi} className="grid grid-cols-7 gap-1 mb-1">
+                    {wk.map((day, di) => {
+                      if (!day) return <div key={di} />;
+                      const dateStr = format(new Date(year, month, day), 'yyyy-MM-dd');
+                      const val = assetLogs[dateStr];
+                      const isToday = dateStr === format(new Date(), 'yyyy-MM-dd');
+                      const hasValue = val != null && val > 0;
+
+                      return (
+                        <div key={di} className={`relative rounded-lg p-1 min-h-[52px] flex flex-col items-center border transition-colors ${
+                          isToday ? 'border-blue-300 bg-blue-50' : hasValue ? 'border-emerald-200 bg-emerald-50/50' : 'border-gray-100 hover:border-gray-200'
+                        }`}>
+                          <span className={`text-[10px] font-medium ${isToday ? 'text-blue-600' : 'text-gray-500'}`}>{day}</span>
+                          <input
+                            type="number"
+                            defaultValue={val ?? ''}
+                            key={`cal-${calendarAssetId}-${dateStr}-${val}`}
+                            onBlur={e => {
+                              const v = Number(e.target.value);
+                              if (e.target.value !== '' && !isNaN(v) && v !== (val ?? -1)) handleDailyLogUpdate(calendarAssetId, dateStr, v);
+                            }}
+                            onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                            placeholder="·"
+                            className={`w-full text-center text-xs font-bold tabular-nums bg-transparent outline-none mt-0.5 ${
+                              hasValue ? 'text-gray-900' : 'text-gray-300'
+                            }`}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+
+              {/* Month total */}
+              <div className="px-6 py-3 border-t border-gray-100 bg-gray-50/50 flex items-center justify-between">
+                <span className="text-xs font-medium text-gray-500">Month Total</span>
+                <span className="text-sm font-bold text-gray-900 tabular-nums">{monthTotal.toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
