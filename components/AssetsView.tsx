@@ -478,6 +478,7 @@ export default function AssetsView() {
                               <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-5 py-2.5">Metric</th>
                               <th className="text-right text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-4 py-2.5 w-28">Today</th>
                               <th className="text-right text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-4 py-2.5 w-28">30-Day Total</th>
+                              <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-4 py-2.5">Notes</th>
                               <th className="w-28"></th>
                             </tr>
                           </thead>
@@ -507,6 +508,11 @@ export default function AssetsView() {
                                     />
                                   </td>
                                   <td className="px-4 py-3 text-right text-sm font-bold text-gray-900 tabular-nums">{total30.toLocaleString()}</td>
+                                  <td className="px-4 py-3">
+                                    <input type="text" defaultValue={asset.notes} key={`n-${asset.id}`}
+                                      onBlur={e => { if (e.target.value !== asset.notes) handleUpdateNotes(asset.id, e.target.value); }}
+                                      placeholder="—" className="w-full px-2 py-1 text-xs text-gray-500 border-0 bg-transparent rounded focus:ring-1 focus:ring-[#3b82f6] outline-none" />
+                                  </td>
                                   <td className="px-3 py-3">
                                     <div className="flex items-center justify-end gap-1">
                                       <button onClick={() => { setCalendarAssetId(asset.id); setCalendarMonth(new Date()); }} className="p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-500 transition-colors" title="View calendar">
