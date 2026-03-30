@@ -68,7 +68,7 @@ export default function GlobalTasksView() {
   const [sortDir, setSortDir]     = useState<SortDir>('asc');
   const [memberNames, setMemberNames] = useState<string[]>([]);
   const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
-  const { profile } = useAuth();
+  const { profile, canEdit } = useAuth();
 
   const deptMapRef = useRef<Record<string, string>>({});
 
@@ -284,6 +284,7 @@ export default function GlobalTasksView() {
         onDelete={handleDelete}
         addLabel="Add Task"
         loading={loading}
+        readOnly={!canEdit}
       />
     </div>
   );

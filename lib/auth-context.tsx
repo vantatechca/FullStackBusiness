@@ -13,6 +13,9 @@ interface AuthContextType {
     departments: string;
   } | null;
   loading: boolean;
+  isAdmin: boolean;
+  isSuperAdmin: boolean;
+  canEdit: boolean; // admin or super_admin
   canAccessDepartment: (deptId: string) => boolean;
   signOut: () => Promise<void>;
 }
@@ -20,6 +23,9 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   profile: null,
   loading: true,
+  isAdmin: false,
+  isSuperAdmin: false,
+  canEdit: false,
   canAccessDepartment: () => false,
   signOut: async () => {},
 });
@@ -38,9 +44,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     : null;
 
+  const isSuperAdmin = profile?.role === 'super_admin';
+  const isAdmin = profile?.role === 'admin' || isSuperAdmin;
+  const canEdit = isAdmin; // admin+ can edit everything
+
   const canAccessDepartment = (deptId: string): boolean => {
     if (!profile) return false;
-    if (profile.role === 'admin') return true;
+    if (isAdmin) return true;
     // dashboard is always accessible
     if (deptId === 'dashboard') return true;
     const depts = profile.departments.split(',').map(d => d.trim()).filter(Boolean);
@@ -52,7 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ profile, loading, canAccessDepartment, signOut }}>
+    <AuthContext.Provider value={{ profile, loading, isAdmin, isSuperAdmin, canEdit, canAccessDepartment, signOut }}>
       {children}
     </AuthContext.Provider>
   );

@@ -3,6 +3,16 @@ import type { NextAuthOptions } from 'next-auth';
 import bcrypt from 'bcryptjs';
 import { sql } from '@/lib/db';
 
+// Server-side audit log helper (direct DB insert, no fetch needed)
+async function logAuthEvent(action: string, userId: string | null, email: string, details?: Record<string, any>) {
+  try {
+    await sql`
+      INSERT INTO public.audit_logs (user_id, user_email, action, entity_type, entity_id, details)
+      VALUES (${userId}, ${email}, ${action}, 'session', '', ${JSON.stringify(details || {})})
+    `;
+  } catch { /* silent — never block auth flow */ }
+}
+
 export interface UserProfile {
   id: string;
   email: string;
@@ -43,10 +53,18 @@ export const authOptions: NextAuthOptions = {
         `;
 
         const user = rows[0];
-        if (!user) return null;
+        if (!user) {
+          await logAuthEvent('login_failed', null, credentials.email, { reason: 'user_not_found' });
+          return null;
+        }
 
         const valid = await bcrypt.compare(credentials.password, user.password_hash);
-        if (!valid) return null;
+        if (!valid) {
+          await logAuthEvent('login_failed', user.id, credentials.email, { reason: 'invalid_password' });
+          return null;
+        }
+
+        await logAuthEvent('login', user.id, user.email, { role: user.role });
 
         return {
           id: user.id,

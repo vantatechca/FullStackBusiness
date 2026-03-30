@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { requireAuth, requireDeptAccess, apiHandler } from '@/lib/api-auth';
+import { logAuditServer } from '@/lib/audit-server';
 
 // GET /api/expenses?deptId=shopify  (deptId is optional — omit to get all expenses)
 export const GET = apiHandler(async (req) => {
@@ -44,5 +45,6 @@ export const POST = apiHandler(async (req) => {
     VALUES (${department_id || null}, ${task_id || null}, ${date}, ${description}, ${category || ''}, ${amount}, ${currency || 'USD'}, ${paid_by || ''}, ${user.id})
     RETURNING *
   `;
+  logAuditServer(user.id, user.email, 'create', 'expense', rows[0].id, { amount, category, description });
   return NextResponse.json(rows[0], { status: 201 });
 });
