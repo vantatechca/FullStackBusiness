@@ -10,15 +10,6 @@ import SpreadsheetTable from './SpreadsheetTable';
 import type { Expense, ColumnDef } from '@/lib/types';
 import { CURRENCIES } from '@/lib/types';
 
-const BASE_COLUMNS: ColumnDef[] = [
-  { key: 'date',        label: 'Date',        type: 'date',       width: '120px' },
-  { key: 'description', label: 'Description', type: 'text',       width: '200px' },
-  { key: 'category',    label: 'Category',    type: 'combobox' as any, options: [], width: '130px' },
-  { key: 'amount',      label: 'Amount',      type: 'number', width: '120px' },
-  { key: 'currency',    label: 'Currency',    type: 'select', options: [...CURRENCIES], width: '100px' },
-  { key: 'paid_by',     label: 'Paid By',     type: 'text',   width: '130px' },
-];
-
 const CAT_COLORS = [
   'bg-blue-100 text-blue-700', 'bg-rose-100 text-rose-700', 'bg-emerald-100 text-emerald-700',
   'bg-amber-100 text-amber-700', 'bg-violet-100 text-violet-700', 'bg-teal-100 text-teal-700',
@@ -34,14 +25,22 @@ export default function GlobalExpensesView() {
   const [loading, setLoading] = useState(true);
   const { formatDisplay, rates } = useCurrency();
   const { profile } = useAuth();
+  const [filterDept, setFilterDept] = useState<string>('all');
 
   const deptMapRef = useRef<Record<string, string>>({});
+  const deptIdMapRef = useRef<Record<string, string>>({}); // name → id
 
   const fetchExpenses = useCallback(async () => {
     try {
       if (Object.keys(deptMapRef.current).length === 0) {
         const dRes = await fetch('/api/table-data?table=departments');
-        if (dRes.ok) { const depts = await dRes.json(); if (Array.isArray(depts)) depts.forEach((d: any) => { deptMapRef.current[d.id] = d.name; }); }
+        if (dRes.ok) {
+          const depts = await dRes.json();
+          if (Array.isArray(depts)) depts.forEach((d: any) => {
+            deptMapRef.current[d.id] = d.name;
+            deptIdMapRef.current[d.name] = d.id;
+          });
+        }
       }
       const deptMap = deptMapRef.current;
       const res = await fetch('/api/table-data?table=expenses');
@@ -69,6 +68,12 @@ export default function GlobalExpensesView() {
     return () => { clearInterval(interval); window.removeEventListener('expenses-updated', fetchExpenses); };
   }, [fetchExpenses]);
 
+  // Department options for the select column (sorted names + "General")
+  const departmentOptions = useMemo(() => {
+    const names = Object.values(deptMapRef.current).sort();
+    return ['General', ...names];
+  }, [expenses]); // re-derive when expenses change (ensures deptMap is populated)
+
   const totalUSD = expenses.reduce((sum, e) => sum + convertToUSD(Number(e.amount) || 0, e.currency, rates), 0);
 
   // Dynamic category options from existing data
@@ -77,12 +82,15 @@ export default function GlobalExpensesView() {
     return Array.from(unique).sort();
   }, [expenses]);
 
-  const columns = useMemo(() =>
-    BASE_COLUMNS.map(col =>
-      col.key === 'category' ? { ...col, options: categoryOptions } : col
-    ),
-    [categoryOptions],
-  );
+  const BASE_COLUMNS: ColumnDef[] = useMemo(() => [
+    { key: 'date',        label: 'Date',        type: 'date',       width: '120px' },
+    { key: 'description', label: 'Description', type: 'text',       width: '200px' },
+    { key: 'category',    label: 'Category',    type: 'combobox' as any, options: categoryOptions, width: '130px' },
+    { key: 'amount',      label: 'Amount',      type: 'number', width: '120px' },
+    { key: 'currency',    label: 'Currency',    type: 'select', options: [...CURRENCIES], width: '100px' },
+    { key: 'paid_by',     label: 'Paid By',     type: 'text',   width: '130px' },
+    { key: 'dept_name',   label: 'Department',  type: 'select', options: departmentOptions, width: '160px' },
+  ], [categoryOptions, departmentOptions]);
 
   // Analytics: by category
   const byCategory = useMemo(() => {
@@ -111,34 +119,56 @@ export default function GlobalExpensesView() {
   const maxCatVal = Math.max(...byCategory.map(c => c.total), 1);
   const maxDeptVal = Math.max(...byDepartment.map(d => d.total), 1);
 
+  // Filtered expenses for the table
+  const filteredExpenses = useMemo(() => {
+    if (filterDept === 'all') return expenses;
+    if (filterDept === 'general') return expenses.filter(e => !e.department_id);
+    return expenses.filter(e => e.department_id === filterDept);
+  }, [expenses, filterDept]);
+
+  const filteredTotal = filteredExpenses.reduce((sum, e) => sum + convertToUSD(Number(e.amount) || 0, e.currency, rates), 0);
+
   const handleAdd = useCallback(async () => {
     const tempId = `temp-${Date.now()}`;
     const today = format(new Date(), 'yyyy-MM-dd');
+    // If filtering by a specific department, assign new expense to that department
+    const deptId = filterDept !== 'all' && filterDept !== 'general' ? filterDept : null;
+    const deptName = deptId ? (deptMapRef.current[deptId] || 'General') : 'General';
     const optimistic = {
-      id: tempId, department_id: '', task_id: null,
+      id: tempId, department_id: deptId, task_id: null,
       date: today, description: '', category: '',
       amount: 0, currency: 'USD', paid_by: '',
       created_by: profile?.id ?? null, created_at: '',
-      dept_name: 'General',
+      dept_name: deptName,
     } as any;
     setExpenses(prev => [optimistic, ...prev]);
     const res = await fetch('/api/expenses', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ department_id: null, date: today, description: '', category: '', amount: 0, currency: 'USD', paid_by: '' }),
+      body: JSON.stringify({ department_id: deptId, date: today, description: '', category: '', amount: 0, currency: 'USD', paid_by: '' }),
     });
     if (res.ok) {
       const inserted = await res.json();
-      setExpenses(prev => prev.map(row => row.id === tempId ? { ...inserted, dept_name: 'General' } : row));
+      setExpenses(prev => prev.map(row => row.id === tempId ? { ...inserted, dept_name: deptName } : row));
       toast.success('Expense added');
     } else {
       setExpenses(prev => prev.filter(row => row.id !== tempId));
       await fetchExpenses();
       toast.error('Failed to add expense');
     }
-  }, [profile?.id, fetchExpenses]);
+  }, [profile?.id, fetchExpenses, filterDept]);
 
   const handleUpdate = useCallback((id: string, key: string, value: string | number | string[]) => {
     if (id.startsWith('temp-')) return;
+
+    // If updating dept_name, translate to department_id for the API
+    if (key === 'dept_name') {
+      const deptName = value as string;
+      const deptId = deptName === 'General' ? null : (deptIdMapRef.current[deptName] || null);
+      setExpenses(prev => prev.map(row => row.id === id ? { ...row, dept_name: deptName, department_id: deptId } : row));
+      fetch(`/api/expenses/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ department_id: deptId }) }).catch(() => { fetchExpenses(); toast.error('Failed to update expense'); });
+      return;
+    }
+
     setExpenses(prev => prev.map(row => row.id === id ? { ...row, [key]: value } : row));
     fetch(`/api/expenses/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ [key]: value }) }).catch(() => { fetchExpenses(); toast.error('Failed to update expense'); });
   }, [fetchExpenses]);
@@ -149,6 +179,26 @@ export default function GlobalExpensesView() {
     toast.success('Expense deleted');
     window.dispatchEvent(new CustomEvent('expenses-updated'));
   }, []);
+
+  // Unique departments for filter tabs
+  const deptTabs = useMemo(() => {
+    const tabs: { id: string; label: string; count: number }[] = [
+      { id: 'all', label: 'All', count: expenses.length },
+      { id: 'general', label: 'General', count: expenses.filter(e => !e.department_id).length },
+    ];
+    const deptCounts: Record<string, number> = {};
+    expenses.forEach(e => {
+      if (e.department_id) {
+        deptCounts[e.department_id] = (deptCounts[e.department_id] || 0) + 1;
+      }
+    });
+    Object.entries(deptCounts)
+      .sort(([, a], [, b]) => b - a)
+      .forEach(([deptId, count]) => {
+        tabs.push({ id: deptId, label: deptMapRef.current[deptId] || deptId, count });
+      });
+    return tabs;
+  }, [expenses]);
 
   if (loading) {
     return <div className="space-y-4">{[...Array(4)].map((_, i) => <div key={i} className="h-20 bg-gray-100 rounded-2xl animate-pulse" />)}</div>;
@@ -217,10 +267,41 @@ export default function GlobalExpensesView() {
         </div>
       )}
 
+      {/* Department Filter Tabs */}
+      {deptTabs.length > 2 && (
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {deptTabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setFilterDept(tab.id)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                filterDept === tab.id
+                  ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                  : 'bg-white text-gray-500 border border-gray-200 hover:border-gray-300 hover:text-gray-700'
+              }`}
+            >
+              {tab.label}
+              <span className={`ml-1.5 text-[10px] ${filterDept === tab.id ? 'text-rose-400' : 'text-gray-400'}`}>
+                {tab.count}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Filtered total if filtering */}
+      {filterDept !== 'all' && (
+        <div className="text-sm text-gray-500">
+          Showing <span className="font-semibold text-gray-900">{filteredExpenses.length}</span> expenses
+          {' '}&middot;{' '}
+          <span className="font-semibold text-rose-600">{formatDisplay(filteredTotal)}</span>
+        </div>
+      )}
+
       {/* Editable Table */}
       <SpreadsheetTable
-        columns={columns}
-        data={expenses}
+        columns={BASE_COLUMNS}
+        data={filteredExpenses}
         onAdd={handleAdd}
         onUpdate={handleUpdate}
         onDelete={handleDelete}

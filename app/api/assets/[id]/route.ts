@@ -6,6 +6,7 @@ import { requireAuth, apiHandler } from '@/lib/api-auth';
 export const PATCH = apiHandler(async (req, { params }: { params: { id: string } }) => {
   await requireAuth();
   const body = await req.json();
+  const hasDeptUpdate = 'department_id' in body;
   const rows = await sql`
     UPDATE public.assets
     SET
@@ -17,6 +18,7 @@ export const PATCH = apiHandler(async (req, { params }: { params: { id: string }
       tracking       = COALESCE(${body.tracking ?? null}, tracking),
       sort_order     = COALESCE(${body.sort_order ?? null}, sort_order),
       notes          = COALESCE(${body.notes ?? null}, notes),
+      department_id  = ${hasDeptUpdate ? (body.department_id || null) : sql`department_id`},
       updated_at     = now()
     WHERE id = ${params.id}
     RETURNING *
