@@ -21,6 +21,12 @@ const inputCls = "w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm f
 const labelCls = "block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5";
 const selectCls = "w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#3b82f6] outline-none appearance-none bg-white";
 
+// Render text with clickable links
+function Linkify({ text }: { text: string }) {
+  const parts = text.split(/(https?:\/\/\S+)/g);
+  return <>{parts.map((part, i) => /^https?:\/\//.test(part) ? <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-700 underline underline-offset-2">{part}</a> : part)}</>;
+}
+
 // ── Draggable metric list (used per category group) ──────────────────────────
 function DraggableMetricList({
   items, onReorder, enabled, children,
@@ -464,6 +470,7 @@ export default function AssetsView() {
                         <textarea
                           value={catNoteDraft}
                           onChange={e => setCatNoteDraft(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { const url = catNoteDraft.match(/https?:\/\/\S+/)?.[0]; if (url) window.open(url, '_blank'); } }}
                           placeholder="Add a note for this category..."
                           rows={2}
                           className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#3b82f6] outline-none resize-none"
@@ -479,7 +486,7 @@ export default function AssetsView() {
                     ) : (
                       <div className="flex items-start gap-2 min-h-[28px]">
                         <p className="flex-1 text-xs text-gray-500 leading-relaxed whitespace-pre-wrap">
-                          {catNotes[category] || <span className="text-gray-300 italic">No note — click edit to add</span>}
+                          {catNotes[category] ? <Linkify text={catNotes[category]} /> : <span className="text-gray-300 italic">No note — click edit to add</span>}
                         </p>
                         {canEdit && (
                           <button onClick={() => startEditCatNote(category)} className="p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 shrink-0 transition-colors" title="Edit note">
@@ -547,6 +554,7 @@ export default function AssetsView() {
                                 <div className="px-4 py-3">
                                   <input type="text" defaultValue={asset.notes} key={`n-${asset.id}`}
                                     onBlur={e => { if (e.target.value !== asset.notes) handleUpdateNotes(asset.id, e.target.value); }}
+                                    onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { const v = (e.target as HTMLInputElement).value; try { const url = v.match(/https?:\/\/\S+/)?.[0]; if (url) window.open(url, '_blank'); } catch {} } }}
                                     placeholder="—" className="w-full px-2 py-1 text-xs text-gray-500 border-0 bg-transparent rounded focus:ring-1 focus:ring-[#3b82f6] outline-none" />
                                 </div>
                                 {canEdit && (
