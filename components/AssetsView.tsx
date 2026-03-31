@@ -6,7 +6,6 @@ import { format, subDays } from 'date-fns';
 import {
   ArrowUpRight, ArrowDownRight, Minus, Plus, X, ChevronDown, ChevronRight,
   Pencil, Trash2, RefreshCw, BarChart3, Check, GripVertical, Calendar, ChevronLeft,
-  MoveUp, MoveDown,
 } from 'lucide-react';
 import type { Asset, AssetDailyLog, Department } from '@/lib/types';
 import { useDragReorder } from '@/lib/use-drag-reorder';
@@ -21,6 +20,46 @@ const PALETTE = [
 const inputCls = "w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] outline-none transition-all";
 const labelCls = "block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5";
 const selectCls = "w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#3b82f6] outline-none appearance-none bg-white";
+
+// ── Draggable metric list (used per category group) ──────────────────────────
+function DraggableMetricList({
+  items, onReorder, enabled, children,
+}: {
+  items: Asset[];
+  onReorder: (next: Asset[]) => void;
+  enabled: boolean;
+  children: (asset: Asset, idx: number, gripHandle: React.ReactNode) => React.ReactNode;
+}) {
+  const { draggingId, listRef, getItemStyle, onPointerDown, onPointerMove, onPointerUp } =
+    useDragReorder(items, onReorder, enabled);
+
+  return (
+    <div
+      ref={listRef}
+      style={{ userSelect: draggingId ? 'none' : undefined }}
+      onPointerMove={draggingId ? onPointerMove : undefined}
+      onPointerUp={draggingId ? onPointerUp : undefined}
+      onPointerLeave={draggingId ? onPointerUp : undefined}
+    >
+      {items.map((asset, idx) => {
+        const grip = enabled ? (
+          <div
+            className="shrink-0 touch-none cursor-grab active:cursor-grabbing flex items-center opacity-0 group-hover/row:opacity-60 hover:!opacity-100 transition-opacity pr-1"
+            onPointerDown={e => onPointerDown(e, asset.id)}
+          >
+            <GripVertical size={12} className="text-gray-400" />
+          </div>
+        ) : null;
+
+        return (
+          <div key={asset.id} data-drag-item style={getItemStyle(idx, asset.id)} className="group/row">
+            {children(asset, idx, grip)}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 // Generate last N days as YYYY-MM-DD strings
 function getLast30Days(): string[] {
@@ -255,16 +294,9 @@ export default function AssetsView() {
     toast.success('Metric deleted');
   };
 
-  // Move metric up/down within its category
-  const handleMoveMetric = useCallback(async (metricList: Asset[], index: number, direction: 'up' | 'down') => {
-    const newIdx = direction === 'up' ? index - 1 : index + 1;
-    if (newIdx < 0 || newIdx >= metricList.length) return;
-
-    const reordered = [...metricList];
-    [reordered[index], reordered[newIdx]] = [reordered[newIdx], reordered[index]];
-
-    // Optimistic update: assign new sort_order values
-    const updates: { id: string; sort_order: number }[] = reordered.map((a, i) => ({ id: a.id, sort_order: i }));
+  // Reorder metrics (called from DraggableMetricList after drag)
+  const handleMetricReorder = useCallback(async (reordered: Asset[]) => {
+    const updates = reordered.map((a, i) => ({ id: a.id, sort_order: i }));
     setAssets(prev => {
       const next = [...prev];
       updates.forEach(u => {
@@ -273,8 +305,6 @@ export default function AssetsView() {
       });
       return next;
     });
-
-    // Persist each updated sort_order
     await Promise.all(updates.map(u =>
       fetch(`/api/assets/${u.id}`, {
         method: 'PATCH',
@@ -468,43 +498,44 @@ export default function AssetsView() {
 
                 {!collapsed && (
                   <div className="border-t border-gray-100">
-                    {/* ── TOTAL metrics table ── */}
+                    {/* ── TOTAL metrics ── */}
                     {totals.length > 0 && (
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-gray-100 bg-gray-50/60">
-                            <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-5 py-2.5">Metric</th>
-                            <th className="text-right text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-4 py-2.5 w-28">Value</th>
-                            <th className="text-right text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-4 py-2.5 w-28">Previous</th>
-                            <th className="text-center text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-4 py-2.5 w-24">Change</th>
-                            <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-4 py-2.5">Notes</th>
-                            {canEdit && <th className="w-16"></th>}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {totals.map((asset, idx) => {
+                      <div className="text-sm">
+                        {/* Header */}
+                        <div className="grid border-b border-gray-100 bg-gray-50/60 text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-2.5" style={{ gridTemplateColumns: 'minmax(0,2fr) 7rem 7rem 6rem minmax(0,1.5fr) auto' }}>
+                          <span className="px-5">Metric</span>
+                          <span className="px-4 text-right">Value</span>
+                          <span className="px-4 text-right">Previous</span>
+                          <span className="px-4 text-center">Change</span>
+                          <span className="px-4">Notes</span>
+                          {canEdit && <span className="w-24" />}
+                        </div>
+                        {/* Rows */}
+                        <DraggableMetricList items={totals} onReorder={handleMetricReorder} enabled={!!canEdit}>
+                          {(asset, idx, grip) => {
                             const delta = asset.value - asset.previous_value;
                             const isGood = asset.direction === 'up_good' ? delta > 0 : delta < 0;
                             const isBad = asset.direction === 'up_good' ? delta < 0 : delta > 0;
                             return (
-                              <tr key={asset.id} className={`border-b border-gray-50 last:border-b-0 hover:bg-gray-50/60 transition-colors ${idx % 2 === 1 ? 'bg-gray-50/30' : ''}`}>
-                                <td className="px-5 py-3">
+                              <div className={`grid items-center border-b border-gray-50 last:border-b-0 hover:bg-gray-50/60 transition-colors ${idx % 2 === 1 ? 'bg-gray-50/30' : ''}`} style={{ gridTemplateColumns: 'minmax(0,2fr) 7rem 7rem 6rem minmax(0,1.5fr) auto' }}>
+                                <div className="px-5 py-3 flex items-center gap-1">
+                                  {grip}
                                   <div className="flex items-center gap-2">
                                     <span className="text-sm font-medium text-gray-700">{asset.metric}</span>
                                     {asset.department_id && deptMap[asset.department_id] && (
                                       <span className="text-[9px] px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded font-semibold">{deptMap[asset.department_id]}</span>
                                     )}
                                   </div>
-                                </td>
-                                <td className="px-4 py-3 text-right">
+                                </div>
+                                <div className="px-4 py-3 text-right">
                                   <input type="number" defaultValue={asset.value} key={`v-${asset.id}-${asset.value}`}
                                     onBlur={e => { const v = Number(e.target.value); if (!isNaN(v) && v !== asset.value) handleUpdateValue(asset.id, v); }}
                                     onKeyDown={e => { if (e.key === 'Enter') { const v = Number((e.target as HTMLInputElement).value); if (!isNaN(v)) handleUpdateValue(asset.id, v); (e.target as HTMLInputElement).blur(); } }}
                                     className="w-24 text-right px-2 py-1 border border-gray-200 rounded-lg text-sm font-semibold text-gray-900 focus:ring-2 focus:ring-[#3b82f6] outline-none tabular-nums"
                                   />
-                                </td>
-                                <td className="px-4 py-3 text-right text-sm text-gray-400 tabular-nums">{asset.previous_value.toLocaleString()}</td>
-                                <td className="px-4 py-3 text-center">
+                                </div>
+                                <div className="px-4 py-3 text-right text-sm text-gray-400 tabular-nums">{asset.previous_value.toLocaleString()}</div>
+                                <div className="px-4 py-3 text-center">
                                   {delta === 0
                                     ? <span className="inline-flex items-center gap-1 text-xs text-gray-400"><Minus size={12} /> 0</span>
                                     : <span className={`inline-flex items-center gap-0.5 text-xs font-semibold ${isGood ? 'text-emerald-600' : isBad ? 'text-rose-600' : 'text-gray-500'}`}>
@@ -512,55 +543,53 @@ export default function AssetsView() {
                                         {delta > 0 ? '+' : ''}{delta.toLocaleString()}
                                       </span>
                                   }
-                                </td>
-                                <td className="px-4 py-3">
+                                </div>
+                                <div className="px-4 py-3">
                                   <input type="text" defaultValue={asset.notes} key={`n-${asset.id}`}
                                     onBlur={e => { if (e.target.value !== asset.notes) handleUpdateNotes(asset.id, e.target.value); }}
                                     placeholder="—" className="w-full px-2 py-1 text-xs text-gray-500 border-0 bg-transparent rounded focus:ring-1 focus:ring-[#3b82f6] outline-none" />
-                                </td>
+                                </div>
                                 {canEdit && (
-                                  <td className="px-3 py-3">
+                                  <div className="px-3 py-3">
                                     <div className="flex items-center gap-1">
-                                      <button onClick={() => handleMoveMetric(totals, idx, 'up')} disabled={idx === 0} className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 disabled:opacity-20 disabled:cursor-default" title="Move up"><MoveUp size={12} /></button>
-                                      <button onClick={() => handleMoveMetric(totals, idx, 'down')} disabled={idx === totals.length - 1} className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 disabled:opacity-20 disabled:cursor-default" title="Move down"><MoveDown size={12} /></button>
                                       <button onClick={() => openEdit(asset)} className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600"><Pencil size={12} /></button>
                                       <button onClick={() => handleDelete(asset.id)} className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"><Trash2 size={12} /></button>
                                     </div>
-                                  </td>
+                                  </div>
                                 )}
-                              </tr>
+                              </div>
                             );
-                          })}
-                        </tbody>
-                      </table>
+                          }}
+                        </DraggableMetricList>
+                      </div>
                     )}
 
-                    {/* ── DAILY metrics rows ── */}
+                    {/* ── DAILY metrics ── */}
                     {dailies.length > 0 && (
                       <div className={totals.length > 0 ? 'border-t border-gray-200' : ''}>
                         <div className="px-5 py-2.5 bg-blue-50/50 border-b border-blue-100">
                           <p className="text-[11px] font-semibold text-blue-600 uppercase tracking-wider">Daily Tracking</p>
                         </div>
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="border-b border-gray-100 bg-gray-50/60">
-                              <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-5 py-2.5">Metric</th>
-                              <th className="text-right text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-4 py-2.5 w-28">Today</th>
-                              <th className="text-right text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-4 py-2.5 w-28">30-Day Total</th>
-                              <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-4 py-2.5">Notes</th>
-                              <th className="w-28"></th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {dailies.map((asset, idx) => {
+                        <div className="text-sm">
+                          {/* Header */}
+                          <div className="grid border-b border-gray-100 bg-gray-50/60 text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-2.5" style={{ gridTemplateColumns: 'minmax(0,2fr) 7rem 7rem minmax(0,1.5fr) auto' }}>
+                            <span className="px-5">Metric</span>
+                            <span className="px-4 text-right">Today</span>
+                            <span className="px-4 text-right">30-Day Total</span>
+                            <span className="px-4">Notes</span>
+                            <span className="w-28" />
+                          </div>
+                          {/* Rows */}
+                          <DraggableMetricList items={dailies} onReorder={handleMetricReorder} enabled={!!canEdit}>
+                            {(asset, idx, grip) => {
                               const assetLogs = logMap[asset.id] || {};
                               const todayStr = format(new Date(), 'yyyy-MM-dd');
                               const todayVal = assetLogs[todayStr] ?? '';
                               const total30 = last30.reduce((s, d) => s + (assetLogs[d] || 0), 0);
-
                               return (
-                                <tr key={asset.id} className={`border-b border-gray-50 last:border-b-0 hover:bg-gray-50/60 transition-colors ${idx % 2 === 1 ? 'bg-gray-50/30' : ''}`}>
-                                  <td className="px-5 py-3">
+                                <div className={`grid items-center border-b border-gray-50 last:border-b-0 hover:bg-gray-50/60 transition-colors ${idx % 2 === 1 ? 'bg-gray-50/30' : ''}`} style={{ gridTemplateColumns: 'minmax(0,2fr) 7rem 7rem minmax(0,1.5fr) auto' }}>
+                                  <div className="px-5 py-3 flex items-center gap-1">
+                                    {grip}
                                     <div className="flex items-center gap-2">
                                       <span className="text-sm font-medium text-gray-700">{asset.metric}</span>
                                       {asset.direction === 'down_good' && (
@@ -570,41 +599,39 @@ export default function AssetsView() {
                                         <span className="text-[9px] px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded font-semibold">{deptMap[asset.department_id]}</span>
                                       )}
                                     </div>
-                                  </td>
-                                  <td className="px-4 py-3 text-right">
+                                  </div>
+                                  <div className="px-4 py-3 text-right">
                                     <input type="number" defaultValue={todayVal} key={`td-${asset.id}-${todayVal}`}
                                       onBlur={e => { const v = Number(e.target.value); if (e.target.value !== '' && !isNaN(v) && v !== (todayVal || -1)) handleDailyLogUpdate(asset.id, todayStr, v); }}
                                       onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
                                       placeholder="0"
                                       className="w-20 text-right px-2 py-1 border border-gray-200 rounded-lg text-sm font-semibold text-gray-900 focus:ring-2 focus:ring-[#3b82f6] outline-none tabular-nums"
                                     />
-                                  </td>
-                                  <td className="px-4 py-3 text-right text-sm font-bold text-gray-900 tabular-nums">{total30.toLocaleString()}</td>
-                                  <td className="px-4 py-3">
+                                  </div>
+                                  <div className="px-4 py-3 text-right text-sm font-bold text-gray-900 tabular-nums">{total30.toLocaleString()}</div>
+                                  <div className="px-4 py-3">
                                     <input type="text" defaultValue={asset.notes} key={`n-${asset.id}`}
                                       onBlur={e => { if (e.target.value !== asset.notes) handleUpdateNotes(asset.id, e.target.value); }}
                                       placeholder="—" className="w-full px-2 py-1 text-xs text-gray-500 border-0 bg-transparent rounded focus:ring-1 focus:ring-[#3b82f6] outline-none" />
-                                  </td>
-                                  <td className="px-3 py-3">
+                                  </div>
+                                  <div className="px-3 py-3">
                                     <div className="flex items-center justify-end gap-1">
                                       <button onClick={() => { setCalendarAssetId(asset.id); setCalendarMonth(new Date()); }} className="p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-500 transition-colors" title="View calendar">
                                         <Calendar size={14} />
                                       </button>
                                       {canEdit && (
                                         <>
-                                          <button onClick={() => handleMoveMetric(dailies, idx, 'up')} disabled={idx === 0} className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 disabled:opacity-20 disabled:cursor-default" title="Move up"><MoveUp size={12} /></button>
-                                          <button onClick={() => handleMoveMetric(dailies, idx, 'down')} disabled={idx === dailies.length - 1} className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 disabled:opacity-20 disabled:cursor-default" title="Move down"><MoveDown size={12} /></button>
                                           <button onClick={() => openEdit(asset)} className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600"><Pencil size={12} /></button>
                                           <button onClick={() => handleDelete(asset.id)} className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"><Trash2 size={12} /></button>
                                         </>
                                       )}
                                     </div>
-                                  </td>
-                                </tr>
+                                  </div>
+                                </div>
                               );
-                            })}
-                          </tbody>
-                        </table>
+                            }}
+                          </DraggableMetricList>
+                        </div>
                       </div>
                     )}
                   </div>
