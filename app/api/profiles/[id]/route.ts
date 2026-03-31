@@ -26,9 +26,9 @@ export const PATCH = apiHandler(async (req, { params }: { params: { id: string }
   const body = await req.json();
   const { role, full_name, email, password } = body;
 
-  // Only super_admin can assign admin/super_admin roles
-  if (role && (role === 'super_admin' || role === 'admin') && !isSuperAdmin(user.role)) {
-    return NextResponse.json({ error: 'Only super admins can assign admin roles' }, { status: 403 });
+  // Only super_admin can assign super_admin role
+  if (role && role === 'super_admin' && !isSuperAdmin(user.role)) {
+    return NextResponse.json({ error: 'Only super admins can assign the super admin role' }, { status: 403 });
   }
 
   if (role && !['super_admin', 'admin', 'manager', 'member'].includes(role)) {
@@ -83,10 +83,10 @@ export const DELETE = apiHandler(async (_req, { params }: { params: { id: string
     return NextResponse.json({ error: 'Cannot delete your own account' }, { status: 400 });
   }
 
-  // Check target user's role — only super_admin can delete admin/super_admin
+  // Only super_admin can delete other super_admins
   const target = await sql`SELECT role FROM public.profiles WHERE id = ${params.id}`;
-  if (target.length > 0 && (target[0].role === 'admin' || target[0].role === 'super_admin') && !isSuperAdmin(user.role)) {
-    return NextResponse.json({ error: 'Only super admins can delete admin users' }, { status: 403 });
+  if (target.length > 0 && target[0].role === 'super_admin' && !isSuperAdmin(user.role)) {
+    return NextResponse.json({ error: 'Only super admins can delete super admin users' }, { status: 403 });
   }
 
   await sql`DELETE FROM public.profiles WHERE id = ${params.id}`;

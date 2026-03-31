@@ -15,12 +15,24 @@ export async function requireAuth() {
 }
 
 // Role hierarchy helpers
+export function isManagerOrAbove(role: string): boolean {
+  return role === 'manager' || role === 'admin' || role === 'super_admin';
+}
+
 export function isAdminOrAbove(role: string): boolean {
   return role === 'admin' || role === 'super_admin';
 }
 
 export function isSuperAdmin(role: string): boolean {
   return role === 'super_admin';
+}
+
+export async function requireManager() {
+  const user = await requireAuth();
+  if (!isManagerOrAbove(user.role)) {
+    throw new Error('Forbidden: manager or above only');
+  }
+  return user;
 }
 
 export async function requireAdmin() {
@@ -41,7 +53,8 @@ export async function requireSuperAdmin() {
 
 export async function requireDeptAccess(deptId: string) {
   const user = await requireAuth();
-  if (isAdminOrAbove(user.role)) return user;
+  // Manager, admin, and super_admin can access all departments
+  if (isManagerOrAbove(user.role)) return user;
   if (deptId === 'dashboard') return user;
   const depts = user.departments.split(',').map((d: string) => d.trim()).filter(Boolean);
   if (!depts.includes(deptId)) {

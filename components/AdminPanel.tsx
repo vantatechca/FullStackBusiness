@@ -125,7 +125,7 @@ function CreateUserModal({
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] outline-none">
               <option value="member">Member</option>
               <option value="manager">Manager</option>
-              {isSuperAdmin && <option value="admin">Admin</option>}
+              <option value="admin">Admin</option>
               {isSuperAdmin && <option value="super_admin">Super Admin</option>}
             </select>
           </div>
@@ -248,7 +248,7 @@ function EditUserModal({
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] outline-none disabled:bg-gray-50 disabled:text-gray-400">
               <option value="member">Member</option>
               <option value="manager">Manager</option>
-              {isSuperAdmin && <option value="admin">Admin</option>}
+              <option value="admin">Admin</option>
               {isSuperAdmin && <option value="super_admin">Super Admin</option>}
             </select>
             {isSelf && <p className="text-xs text-gray-400 mt-1">You cannot change your own role.</p>}
@@ -360,8 +360,8 @@ function UsersTab({ isSuperAdmin, currentUserId }: { isSuperAdmin: boolean; curr
           )}
           {filtered.map(p => {
             const isSelf = p.id === currentUserId;
-            const isTargetAdmin = p.role === 'admin' || p.role === 'super_admin';
-            const canModify = isSuperAdmin || !isTargetAdmin;
+            const isTargetSuperAdmin = p.role === 'super_admin';
+            const canModify = isSuperAdmin || !isTargetSuperAdmin;
 
             return (
               <div key={p.id} className="grid grid-cols-[2fr_1fr_1fr_auto] gap-4 px-5 py-3.5 items-center hover:bg-gray-50 transition-colors">
@@ -406,9 +406,9 @@ function UsersTab({ isSuperAdmin, currentUserId }: { isSuperAdmin: boolean; curr
           <div>
             <p className="text-sm font-medium text-amber-800">Role Permissions</p>
             <ul className="mt-1.5 space-y-1">
-              <li className="text-xs text-amber-700"><span className="font-semibold">Super Admin</span> — Full access + system logs + can manage all roles</li>
-              <li className="text-xs text-amber-700"><span className="font-semibold">Admin</span> — Full access to all departments + admin panel + can create members/managers</li>
-              <li className="text-xs text-amber-700"><span className="font-semibold">Manager</span> — Access to assigned departments, can create/edit data</li>
+              <li className="text-xs text-amber-700"><span className="font-semibold">Super Admin</span> — Everything + system logs + can assign super admin role</li>
+              <li className="text-xs text-amber-700"><span className="font-semibold">Admin</span> — Everything + admin panel + can manage users (assign Manager, Admin)</li>
+              <li className="text-xs text-amber-700"><span className="font-semibold">Manager</span> — Full access to all departments, full CRUD on all data, no admin panel</li>
               <li className="text-xs text-amber-700"><span className="font-semibold">Member</span> — Access only to assigned departments</li>
             </ul>
           </div>
@@ -570,7 +570,7 @@ export default function AdminPanel() {
     <div className="max-w-5xl mx-auto">
       <div className="mb-6">
         <h2 className="text-xl font-bold text-gray-900">Admin Panel</h2>
-        <p className="text-sm text-gray-500 mt-1">Manage users{isSuperAdmin ? ' and view system logs' : ''}</p>
+        <p className="text-sm text-gray-500 mt-1">Manage users and roles{isSuperAdmin ? ', view system logs' : ''}</p>
       </div>
 
       {/* Tab Buttons */}
