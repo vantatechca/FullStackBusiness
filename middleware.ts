@@ -6,8 +6,8 @@ export default withAuth(
     const { pathname } = req.nextUrl;
     const token = req.nextauth.token;
 
-    // Admin panel — super_admin only
-    if (pathname.startsWith('/dashboard/admin') && token?.role !== 'super_admin') {
+    // Admin panel — admin and super_admin only
+    if (pathname.startsWith('/dashboard/admin') && token?.role !== 'super_admin' && token?.role !== 'admin') {
       return NextResponse.redirect(new URL('/dashboard', req.url));
     }
 

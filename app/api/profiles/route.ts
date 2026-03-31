@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import bcrypt from 'bcryptjs';
-import { requireAuth, requireSuperAdmin, isAdminOrAbove, apiHandler } from '@/lib/api-auth';
+import { requireAuth, requireAdmin, isAdminOrAbove, isSuperAdmin, apiHandler } from '@/lib/api-auth';
 import { logAuditServer } from '@/lib/audit-server';
 
 // GET /api/profiles — admin+ gets all, user gets own
@@ -24,17 +24,23 @@ export const GET = apiHandler(async () => {
   return NextResponse.json(rows[0]);
 });
 
-// POST /api/profiles — super_admin creates users with credentials
+// POST /api/profiles — admin+ creates users with credentials
 export const POST = apiHandler(async (req) => {
-  const user = await requireSuperAdmin();
+  const user = await requireAdmin();
   const { email, full_name, role, password } = await req.json();
 
   if (!email || !password || !full_name) {
     return NextResponse.json({ error: 'Email, name, and password are required' }, { status: 400 });
   }
 
-  if (!['super_admin', 'admin', 'manager', 'member'].includes(role || 'member')) {
+  const validRoles = ['super_admin', 'admin', 'manager', 'member'];
+  if (!validRoles.includes(role || 'member')) {
     return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
+  }
+
+  // Only super_admin can create super_admin or admin users
+  if ((role === 'super_admin' || role === 'admin') && !isSuperAdmin(user.role)) {
+    return NextResponse.json({ error: 'Only super admins can assign admin roles' }, { status: 403 });
   }
 
   // Check if email already exists
@@ -45,7 +51,6 @@ export const POST = apiHandler(async (req) => {
 
   const password_hash = await bcrypt.hash(password, 12);
 
-  // Use gen_random_uuid() explicitly for the id in case DEFAULT is not set
   const rows = await sql`
     INSERT INTO public.profiles (id, email, full_name, role, password_hash)
     VALUES (gen_random_uuid(), ${email}, ${full_name}, ${role || 'member'}, ${password_hash})
