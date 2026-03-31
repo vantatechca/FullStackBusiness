@@ -408,7 +408,7 @@ function UsersTab({ isSuperAdmin, currentUserId }: { isSuperAdmin: boolean; curr
           <div>
             <p className="text-sm font-medium text-amber-800">Role Permissions</p>
             <ul className="mt-1.5 space-y-1">
-              <li className="text-xs text-amber-700"><span className="font-semibold">Super Admin</span> — Everything + system logs + can assign super admin role</li>
+              {isSuperAdmin && <li className="text-xs text-amber-700"><span className="font-semibold">Super Admin</span> — Everything + system logs + can assign super admin role</li>}
               <li className="text-xs text-amber-700"><span className="font-semibold">Admin</span> — Everything + admin panel + can manage users (assign Manager, Admin)</li>
               <li className="text-xs text-amber-700"><span className="font-semibold">Manager</span> — Full access to all departments, full CRUD on all data, no admin panel</li>
               <li className="text-xs text-amber-700"><span className="font-semibold">Member</span> — Access only to assigned departments</li>
