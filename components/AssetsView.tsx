@@ -6,6 +6,7 @@ import { format, subDays } from 'date-fns';
 import {
   ArrowUpRight, ArrowDownRight, Minus, Plus, X, ChevronDown, ChevronRight,
   Pencil, Trash2, RefreshCw, BarChart3, Check, GripVertical, Calendar, ChevronLeft,
+  MoveUp, MoveDown,
 } from 'lucide-react';
 import type { Asset, AssetDailyLog, Department } from '@/lib/types';
 import { useDragReorder } from '@/lib/use-drag-reorder';
@@ -148,6 +149,11 @@ export default function AssetsView() {
       if (a.tracking === 'daily') map[cat].dailies.push(a);
       else map[cat].totals.push(a);
     });
+    // Sort metrics within each group by sort_order
+    Object.values(map).forEach(g => {
+      g.totals.sort((a, b) => a.sort_order - b.sort_order);
+      g.dailies.sort((a, b) => a.sort_order - b.sort_order);
+    });
     // Sort by category order
     return Object.entries(map).sort(([a], [b]) => {
       const ai = categories.indexOf(a);
@@ -248,6 +254,35 @@ export default function AssetsView() {
     await fetch(`/api/assets/${id}`, { method: 'DELETE' });
     toast.success('Metric deleted');
   };
+
+  // Move metric up/down within its category
+  const handleMoveMetric = useCallback(async (metricList: Asset[], index: number, direction: 'up' | 'down') => {
+    const newIdx = direction === 'up' ? index - 1 : index + 1;
+    if (newIdx < 0 || newIdx >= metricList.length) return;
+
+    const reordered = [...metricList];
+    [reordered[index], reordered[newIdx]] = [reordered[newIdx], reordered[index]];
+
+    // Optimistic update: assign new sort_order values
+    const updates: { id: string; sort_order: number }[] = reordered.map((a, i) => ({ id: a.id, sort_order: i }));
+    setAssets(prev => {
+      const next = [...prev];
+      updates.forEach(u => {
+        const idx = next.findIndex(a => a.id === u.id);
+        if (idx !== -1) next[idx] = { ...next[idx], sort_order: u.sort_order };
+      });
+      return next;
+    });
+
+    // Persist each updated sort_order
+    await Promise.all(updates.map(u =>
+      fetch(`/api/assets/${u.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sort_order: u.sort_order }),
+      })
+    ));
+  }, []);
 
   // Daily log upsert
   const handleDailyLogUpdate = async (assetId: string, date: string, value: number) => {
@@ -486,6 +521,8 @@ export default function AssetsView() {
                                 {canEdit && (
                                   <td className="px-3 py-3">
                                     <div className="flex items-center gap-1">
+                                      <button onClick={() => handleMoveMetric(totals, idx, 'up')} disabled={idx === 0} className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 disabled:opacity-20 disabled:cursor-default" title="Move up"><MoveUp size={12} /></button>
+                                      <button onClick={() => handleMoveMetric(totals, idx, 'down')} disabled={idx === totals.length - 1} className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 disabled:opacity-20 disabled:cursor-default" title="Move down"><MoveDown size={12} /></button>
                                       <button onClick={() => openEdit(asset)} className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600"><Pencil size={12} /></button>
                                       <button onClick={() => handleDelete(asset.id)} className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"><Trash2 size={12} /></button>
                                     </div>
@@ -555,6 +592,8 @@ export default function AssetsView() {
                                       </button>
                                       {canEdit && (
                                         <>
+                                          <button onClick={() => handleMoveMetric(dailies, idx, 'up')} disabled={idx === 0} className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 disabled:opacity-20 disabled:cursor-default" title="Move up"><MoveUp size={12} /></button>
+                                          <button onClick={() => handleMoveMetric(dailies, idx, 'down')} disabled={idx === dailies.length - 1} className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 disabled:opacity-20 disabled:cursor-default" title="Move down"><MoveDown size={12} /></button>
                                           <button onClick={() => openEdit(asset)} className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600"><Pencil size={12} /></button>
                                           <button onClick={() => handleDelete(asset.id)} className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"><Trash2 size={12} /></button>
                                         </>
