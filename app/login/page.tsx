@@ -3,7 +3,6 @@
 
 import { useState } from 'react';
 // import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { signIn } from 'next-auth/react';
 import { ChartBar as BarChart3, Loader as Loader2 } from 'lucide-react';
 
@@ -89,10 +88,7 @@ const handleSubmit = async (e: React.FormEvent) => {
         </div>
 
         <p className="text-center text-sm text-gray-500 mt-6">
-          Don&apos;t have an account?{' '}
-          <Link href="/signup" className="text-[#3b82f6] font-medium hover:underline">
-            Sign up
-          </Link>
+          Contact your administrator to get an account.
         </p>
       </div>
     </div>

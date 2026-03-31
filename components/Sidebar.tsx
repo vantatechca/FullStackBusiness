@@ -314,8 +314,8 @@ export default function Sidebar() {
   };
 
   const isLoadingAny = loading || deptsLoading;
-  const adminDept    = departments.find(d => d.id === 'admin') || (isSuperAdmin ? { id: 'admin', name: 'Admin Panel', icon: 'ShieldCheck', type: 'admin', sort_order: 105 } : undefined);
-  const showAdmin    = !loading && isSuperAdmin && adminDept &&
+  const adminDept    = departments.find(d => d.id === 'admin') || (isAdmin ? { id: 'admin', name: 'Admin Panel', icon: 'ShieldCheck', type: 'admin', sort_order: 105 } : undefined);
+  const showAdmin    = !loading && isAdmin && adminDept &&
     (!search || 'admin panel'.includes(search.toLowerCase()));
 
   return (
