@@ -38,9 +38,9 @@ export const POST = apiHandler(async (req) => {
     return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
   }
 
-  // Only super_admin can create super_admin or admin users
-  if ((role === 'super_admin' || role === 'admin') && !isSuperAdmin(user.role)) {
-    return NextResponse.json({ error: 'Only super admins can assign admin roles' }, { status: 403 });
+  // Only super_admin can create super_admin users
+  if (role === 'super_admin' && !isSuperAdmin(user.role)) {
+    return NextResponse.json({ error: 'Only super admins can assign the super admin role' }, { status: 403 });
   }
 
   // Check if email already exists

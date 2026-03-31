@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
-import { requireAdmin, apiHandler } from '@/lib/api-auth';
+import { requireManager, apiHandler } from '@/lib/api-auth';
 
 // GET /api/departments/[id]
 export const GET = apiHandler(async (_req, { params }: { params: { id: string } }) => {
@@ -15,7 +15,7 @@ export const GET = apiHandler(async (_req, { params }: { params: { id: string } 
 
 // PATCH /api/departments/[id]
 export const PATCH = apiHandler(async (req, { params }: { params: { id: string } }) => {
-  await requireAdmin();
+  await requireManager();
   const { name } = await req.json();
 
   const rows = await sql`
@@ -29,7 +29,7 @@ export const PATCH = apiHandler(async (req, { params }: { params: { id: string }
 
 // DELETE /api/departments/[id]
 export const DELETE = apiHandler(async (_req, { params }: { params: { id: string } }) => {
-  await requireAdmin();
+  await requireManager();
 
   await sql`DELETE FROM public.departments WHERE id = ${params.id}`;
   return NextResponse.json({ success: true });

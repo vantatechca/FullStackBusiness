@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
-import { requireAdmin, apiHandler } from '@/lib/api-auth';
+import { requireManager, apiHandler } from '@/lib/api-auth';
 
 // PATCH /api/departments/reorder
 export const PATCH = apiHandler(async (req) => {
-  await requireAdmin();
+  await requireManager();
   const { ids } = await req.json() as { ids: string[] };
 
   await Promise.all(

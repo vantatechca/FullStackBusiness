@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
-import { requireAdmin, apiHandler } from '@/lib/api-auth';
+import { requireManager, apiHandler } from '@/lib/api-auth';
 
 // PATCH /api/team-members/[id]
 export const PATCH = apiHandler(async (req, { params }: { params: { id: string } }) => {
-  await requireAdmin();
+  await requireManager();
   const body = await req.json();
 
   const rows = await sql`
@@ -24,7 +24,7 @@ export const PATCH = apiHandler(async (req, { params }: { params: { id: string }
 
 // DELETE /api/team-members/[id]
 export const DELETE = apiHandler(async (_req, { params }: { params: { id: string } }) => {
-  await requireAdmin();
+  await requireManager();
   await sql`DELETE FROM public.team_members WHERE id = ${params.id}`;
   return NextResponse.json({ success: true });
 });

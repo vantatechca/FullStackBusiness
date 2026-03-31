@@ -174,7 +174,7 @@ export default function Sidebar() {
   const saveTimer    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pathname     = usePathname();
   const router       = useRouter();
-  const { canAccessDepartment, signOut, profile, loading, isAdmin, isSuperAdmin } = useAuth();
+  const { canAccessDepartment, signOut, profile, loading, isAdmin, isSuperAdmin, canEdit } = useAuth();
 
   // ── Drag-to-resize ──────────────────────────────────────────────────────
   const onResizePointerDown = useCallback((e: React.PointerEvent) => {
@@ -264,7 +264,7 @@ export default function Sidebar() {
     return true;
   }), [departments, loading, canAccessDepartment, search]);
 
-  const dragEnabled = isAdmin && !collapsed && !search && !editingId;
+  const dragEnabled = canEdit && !collapsed && !search && !editingId;
 
   const { draggingId, listRef, getItemStyle, onPointerDown, onPointerMove, onPointerUp } =
     useSmoothDrag(mainDepts, handleReorder, dragEnabled);
@@ -462,7 +462,7 @@ export default function Sidebar() {
                             )}
                           </Link>
 
-                          {isAdmin && !collapsed && (
+                          {canEdit && !collapsed && (
                             <div className="relative shrink-0 pr-1" data-dept-menu>
                               <button
                                 onClick={e => { e.preventDefault(); setMenuOpenId(menuOpen ? null : dept.id); }}
@@ -495,7 +495,7 @@ export default function Sidebar() {
                 })}
               </div>
 
-              {isAdmin && (
+              {canEdit && (
                 <button
                   onClick={() => setShowAddModal(true)}
                   title={collapsed ? 'Add Department' : undefined}

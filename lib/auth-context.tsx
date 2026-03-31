@@ -46,11 +46,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isSuperAdmin = profile?.role === 'super_admin';
   const isAdmin = profile?.role === 'admin' || isSuperAdmin;
-  const canEdit = isAdmin; // admin+ can edit everything
+  const isManager = profile?.role === 'manager' || isAdmin;
+  const canEdit = isManager; // manager+ can edit everything
 
   const canAccessDepartment = (deptId: string): boolean => {
     if (!profile) return false;
-    if (isAdmin) return true;
+    // Manager, admin, super_admin can access all departments
+    if (isManager) return true;
     // dashboard is always accessible
     if (deptId === 'dashboard') return true;
     const depts = profile.departments.split(',').map(d => d.trim()).filter(Boolean);

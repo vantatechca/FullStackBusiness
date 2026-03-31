@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
-import { requireAuth, requireAdmin, apiHandler } from '@/lib/api-auth';
+import { requireAuth, requireManager, apiHandler } from '@/lib/api-auth';
 
 // GET /api/departments
 export const GET = apiHandler(async () => {
@@ -14,7 +14,7 @@ export const GET = apiHandler(async () => {
 
 // POST /api/departments
 export const POST = apiHandler(async (req) => {
-  await requireAdmin();
+  await requireManager();
   const body = await req.json();
   const { id, name, icon, type, sort_order } = body;
 
