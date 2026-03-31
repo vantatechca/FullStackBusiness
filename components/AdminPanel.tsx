@@ -311,6 +311,8 @@ function UsersTab({ isSuperAdmin, currentUserId }: { isSuperAdmin: boolean; curr
   };
 
   const filtered = profiles.filter(p => {
+    // Hide super_admin users from non-super_admin viewers
+    if (!isSuperAdmin && p.role === 'super_admin') return false;
     if (!search) return true;
     const q = search.toLowerCase();
     return p.full_name?.toLowerCase().includes(q) || p.email.toLowerCase().includes(q) || p.role.includes(q);
@@ -329,7 +331,7 @@ function UsersTab({ isSuperAdmin, currentUserId }: { isSuperAdmin: boolean; curr
       <div className="flex items-center justify-between">
         <div>
           <h3 className="font-semibold text-gray-900">User Management</h3>
-          <p className="text-sm text-gray-500 mt-0.5">{profiles.length} user{profiles.length !== 1 ? 's' : ''} in the system</p>
+          <p className="text-sm text-gray-500 mt-0.5">{filtered.length} user{filtered.length !== 1 ? 's' : ''} in the system</p>
         </div>
         <button onClick={() => setShowCreate(true)}
           className="flex items-center gap-2 px-3 py-2 bg-[#3b82f6] text-white text-sm font-medium rounded-lg hover:bg-[#2563eb] transition-colors">
