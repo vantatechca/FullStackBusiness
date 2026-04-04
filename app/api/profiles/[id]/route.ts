@@ -31,7 +31,7 @@ export const PATCH = apiHandler(async (req, { params }: { params: { id: string }
     return NextResponse.json({ error: 'Only super admins can assign the super admin role' }, { status: 403 });
   }
 
-  if (role && !['super_admin', 'admin', 'manager', 'member'].includes(role)) {
+  if (role && !['super_admin', 'admin', 'manager', 'lead', 'member'].includes(role)) {
     return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
   }
 

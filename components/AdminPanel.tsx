@@ -30,6 +30,7 @@ function RoleBadge({ role }: { role: string }) {
     super_admin: 'bg-purple-100 text-purple-700 border border-purple-200',
     admin: 'bg-red-100 text-red-700 border border-red-200',
     manager: 'bg-amber-100 text-amber-700 border border-amber-200',
+    lead: 'bg-blue-100 text-blue-700 border border-blue-200',
     member: 'bg-gray-100 text-gray-600 border border-gray-200',
   };
   return (
@@ -124,6 +125,7 @@ function CreateUserModal({
             <select value={role} onChange={e => setRole(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] outline-none">
               <option value="member">Member</option>
+              <option value="lead">Lead</option>
               <option value="manager">Manager</option>
               <option value="admin">Admin</option>
               {isSuperAdmin && <option value="super_admin">Super Admin</option>}
@@ -247,6 +249,7 @@ function EditUserModal({
             <select value={role} onChange={e => setRole(e.target.value)} disabled={isSelf}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] outline-none disabled:bg-gray-50 disabled:text-gray-400">
               <option value="member">Member</option>
+              <option value="lead">Lead</option>
               <option value="manager">Manager</option>
               <option value="admin">Admin</option>
               {isSuperAdmin && <option value="super_admin">Super Admin</option>}
@@ -418,7 +421,7 @@ function UsersTab({ isSuperAdmin, currentUserId }: { isSuperAdmin: boolean; curr
                   {new Date(p.created_at).toLocaleDateString()}
                 </div>
                 <div className="flex items-center gap-1">
-                  {isSuperAdmin && (p.role === 'admin' || p.role === 'manager') && !isSelf && (
+                  {isSuperAdmin && (p.role === 'admin' || p.role === 'manager' || p.role === 'lead') && !isSelf && (
                     <button
                       onClick={() => toggleStar(p.id)}
                       disabled={togglingStarId === p.id}
@@ -459,10 +462,11 @@ function UsersTab({ isSuperAdmin, currentUserId }: { isSuperAdmin: boolean; curr
           <div>
             <p className="text-sm font-medium text-amber-800">Role Permissions</p>
             <ul className="mt-1.5 space-y-1">
-              {isSuperAdmin && <li className="text-xs text-amber-700"><span className="font-semibold">Super Admin</span> — Everything + system logs + can assign super admin role</li>}
-              <li className="text-xs text-amber-700"><span className="font-semibold">Admin</span> — Everything + admin panel + can manage users (assign Manager, Admin)</li>
-              <li className="text-xs text-amber-700"><span className="font-semibold">Manager</span> — Full access to all departments, full CRUD on all data, no admin panel</li>
-              <li className="text-xs text-amber-700"><span className="font-semibold">Member</span> — Access only to assigned departments</li>
+              {isSuperAdmin && <li className="text-xs text-amber-700"><span className="font-semibold">Super Admin</span> — Full access + system logs + can assign super admin role</li>}
+              <li className="text-xs text-amber-700"><span className="font-semibold">Admin</span> — Full access + admin panel + user management, no system logs</li>
+              <li className="text-xs text-amber-700"><span className="font-semibold">Manager</span> — Full access to all departments, full CRUD, no admin panel</li>
+              <li className="text-xs text-amber-700"><span className="font-semibold">Lead</span> — Access assigned departments, can CRUD, add/assign tasks, review check-ins</li>
+              <li className="text-xs text-amber-700"><span className="font-semibold">Member</span> — Access assigned departments, can complete tasks and submit check-ins</li>
             </ul>
           </div>
         </div>

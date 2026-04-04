@@ -33,7 +33,7 @@ export const POST = apiHandler(async (req) => {
     return NextResponse.json({ error: 'Email, name, and password are required' }, { status: 400 });
   }
 
-  const validRoles = ['super_admin', 'admin', 'manager', 'member'];
+  const validRoles = ['super_admin', 'admin', 'manager', 'lead', 'member'];
   if (!validRoles.includes(role || 'member')) {
     return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
   }

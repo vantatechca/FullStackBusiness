@@ -14,7 +14,12 @@ export async function requireAuth() {
   return session.user;
 }
 
-// Role hierarchy helpers
+// ─── Role hierarchy: super_admin > admin > manager > lead > member ──────────
+
+export function isLeadOrAbove(role: string): boolean {
+  return role === 'lead' || role === 'manager' || role === 'admin' || role === 'super_admin';
+}
+
 export function isManagerOrAbove(role: string): boolean {
   return role === 'manager' || role === 'admin' || role === 'super_admin';
 }
@@ -25,6 +30,16 @@ export function isAdminOrAbove(role: string): boolean {
 
 export function isSuperAdmin(role: string): boolean {
   return role === 'super_admin';
+}
+
+// ─── Role requirement functions ─────────────────────────────────────────────
+
+export async function requireLead() {
+  const user = await requireAuth();
+  if (!isLeadOrAbove(user.role)) {
+    throw new Error('Forbidden: lead or above only');
+  }
+  return user;
 }
 
 export async function requireManager() {
@@ -53,9 +68,11 @@ export async function requireSuperAdmin() {
 
 export async function requireDeptAccess(deptId: string) {
   const user = await requireAuth();
-  // Manager, admin, and super_admin can access all departments
+  // Manager+ can access all departments
   if (isManagerOrAbove(user.role)) return user;
+  // Dashboard is always accessible
   if (deptId === 'dashboard') return user;
+  // Lead and member: check department assignment
   const depts = user.departments.split(',').map((d: string) => d.trim()).filter(Boolean);
   if (!depts.includes(deptId)) {
     throw new Error(`Forbidden: no access to ${deptId}`);
@@ -63,7 +80,8 @@ export async function requireDeptAccess(deptId: string) {
   return user;
 }
 
-// Wrap API route handlers with error handling
+// ─── API handler wrapper ────────────────────────────────────────────────────
+
 export function apiHandler(
   handler: (req: Request, context?: any) => Promise<Response>
 ) {
