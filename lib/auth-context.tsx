@@ -1,4 +1,3 @@
-
 'use client';
 
 import { createContext, useContext, ReactNode } from 'react';
@@ -13,9 +12,11 @@ interface AuthContextType {
     departments: string;
   } | null;
   loading: boolean;
-  isAdmin: boolean;
   isSuperAdmin: boolean;
-  canEdit: boolean; // admin or super_admin
+  isAdmin: boolean;       // admin or super_admin
+  isManager: boolean;     // manager or above
+  isLead: boolean;        // lead or above
+  canEdit: boolean;       // lead+ can edit within their scope
   canAccessDepartment: (deptId: string) => boolean;
   signOut: () => Promise<void>;
 }
@@ -23,8 +24,10 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   profile: null,
   loading: true,
-  isAdmin: false,
   isSuperAdmin: false,
+  isAdmin: false,
+  isManager: false,
+  isLead: false,
   canEdit: false,
   canAccessDepartment: () => false,
   signOut: async () => {},
@@ -47,14 +50,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isSuperAdmin = profile?.role === 'super_admin';
   const isAdmin = profile?.role === 'admin' || isSuperAdmin;
   const isManager = profile?.role === 'manager' || isAdmin;
-  const canEdit = isManager; // manager+ can edit everything
+  const isLead = profile?.role === 'lead' || isManager;
+  const canEdit = isLead; // lead+ can edit within their scope
 
   const canAccessDepartment = (deptId: string): boolean => {
     if (!profile) return false;
-    // Manager, admin, super_admin can access all departments
+    // Manager+ can access all departments
     if (isManager) return true;
-    // dashboard is always accessible
+    // Dashboard is always accessible
     if (deptId === 'dashboard') return true;
+    // Lead and member: check department assignment
     const depts = profile.departments.split(',').map(d => d.trim()).filter(Boolean);
     return depts.includes(deptId);
   };
@@ -64,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ profile, loading, isAdmin, isSuperAdmin, canEdit, canAccessDepartment, signOut }}>
+    <AuthContext.Provider value={{ profile, loading, isSuperAdmin, isAdmin, isManager, isLead, canEdit, canAccessDepartment, signOut }}>
       {children}
     </AuthContext.Provider>
   );

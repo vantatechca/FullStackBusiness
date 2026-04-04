@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
-import { requireManager, apiHandler } from '@/lib/api-auth';
+import { requireAuth, requireManager, apiHandler } from '@/lib/api-auth';
 
 // GET /api/departments/[id]
 export const GET = apiHandler(async (_req, { params }: { params: { id: string } }) => {
+  await requireAuth();
   const rows = await sql`
     SELECT * FROM public.departments
     WHERE id = ${params.id}
