@@ -7,27 +7,15 @@ export const PATCH = apiHandler(async (req, { params }: { params: { id: string }
   await requireAdmin();
   const { id } = await params;
   const body = await req.json();
-
-  const fields: string[] = [];
-  const values: any[] = [];
-  let paramIdx = 1;
-
-  for (const [key, value] of Object.entries(body)) {
-    if (['name', 'birthday', 'notes'].includes(key)) {
-      fields.push(`${key} = $${paramIdx}`);
-      values.push(value);
-      paramIdx++;
-    }
-  }
-
-  if (fields.length === 0) {
-    return NextResponse.json({ error: 'No valid fields' }, { status: 400 });
-  }
-
-  values.push(id);
-  const query = `UPDATE public.business_partners SET ${fields.join(', ')} WHERE id = $${paramIdx} RETURNING *`;
-  const rows = await sql(query, values);
-
+  const rows = await sql`
+    UPDATE public.business_partners
+    SET
+      name = COALESCE(${body.name ?? null}, name),
+      birthday = COALESCE(${body.birthday ?? null}, birthday),
+      notes = COALESCE(${body.notes ?? null}, notes)
+    WHERE id = ${id}
+    RETURNING *
+  `;
   if (rows.length === 0) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
