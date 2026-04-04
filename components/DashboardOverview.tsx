@@ -14,6 +14,7 @@ import {
   Activity, DollarSign, AlertTriangle,
 } from 'lucide-react';
 import QuickAddModal from './QuickAddModal';
+import BirthdayNotificationBanner from './BirthdayNotificationBanner';
 
 interface Department {
   id: string;
@@ -155,6 +156,9 @@ export default function DashboardOverview() {
 
   return (
     <div className="space-y-6">
+
+      {/* ── Birthday Notifications ── */}
+      <BirthdayNotificationBanner />
 
       {/* ── Header: Greeting + Quick Actions ── */}
       <div className="flex items-center justify-between flex-wrap gap-3">

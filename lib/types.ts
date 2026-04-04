@@ -191,6 +191,32 @@ export interface AssetDailyLog {
   created_at: string;
 }
 
+export interface BusinessPartner {
+  id: string;
+  name: string;
+  birthday: string | null;
+  notes: string;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface BirthdayStarredAdmin {
+  id: string;
+  admin_id: string;
+  starred_by: string;
+  created_at: string;
+}
+
+export interface BirthdayDismissal {
+  id: string;
+  partner_id: string;
+  user_id: string;
+  action: 'greeted' | 'snoozed';
+  year: number;
+  snoozed_until: string | null;
+  created_at: string;
+}
+
 export const CURRENCIES = ['USD', 'CAD', 'EUR', 'GBP', 'AED', 'AUD', 'BTC', 'USDT'] as const;
 
 export const CURRENCY_SYMBOLS: Record<string, string> = {
