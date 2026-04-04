@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/auth-context';
 import type { Profile } from '@/lib/types';
 import {
   Users, Shield, Plus, Pencil, Trash2, X, Check, Eye, EyeOff,
-  Loader as Loader2, Search, Activity, ChevronLeft, ChevronRight,
+  Loader as Loader2, Search, Activity, ChevronLeft, ChevronRight, Star,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -275,6 +275,8 @@ function UsersTab({ isSuperAdmin, currentUserId }: { isSuperAdmin: boolean; curr
   const [showCreate, setShowCreate] = useState(false);
   const [editUser, setEditUser] = useState<Profile | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [starredAdmins, setStarredAdmins] = useState<Set<string>>(new Set());
+  const [togglingStarId, setTogglingStarId] = useState<string | null>(null);
 
   const fetchProfiles = useCallback(async () => {
     try {
@@ -289,7 +291,42 @@ function UsersTab({ isSuperAdmin, currentUserId }: { isSuperAdmin: boolean; curr
     }
   }, []);
 
+  const fetchStarredAdmins = useCallback(async () => {
+    if (!isSuperAdmin) return;
+    try {
+      const res = await fetch('/api/birthday-starred-admins');
+      if (!res.ok) return;
+      const data = await res.json();
+      setStarredAdmins(new Set(data.map((s: any) => s.admin_id)));
+    } catch { /* silent */ }
+  }, [isSuperAdmin]);
+
+  const toggleStar = async (adminId: string) => {
+    setTogglingStarId(adminId);
+    const isCurrentlyStarred = starredAdmins.has(adminId);
+    try {
+      if (isCurrentlyStarred) {
+        await fetch(`/api/birthday-starred-admins/${adminId}`, { method: 'DELETE' });
+        setStarredAdmins(prev => { const next = new Set(prev); next.delete(adminId); return next; });
+        toast.success('Admin unstarred — will no longer receive birthday notifications');
+      } else {
+        await fetch('/api/birthday-starred-admins', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ admin_id: adminId }),
+        });
+        setStarredAdmins(prev => new Set(prev).add(adminId));
+        toast.success('Admin starred — will now receive birthday notifications');
+      }
+    } catch {
+      toast.error('Failed to update star');
+    } finally {
+      setTogglingStarId(null);
+    }
+  };
+
   useEffect(() => { fetchProfiles(); }, [fetchProfiles]);
+  useEffect(() => { fetchStarredAdmins(); }, [fetchStarredAdmins]);
 
   const handleDelete = async (p: Profile) => {
     if (!confirm(`Delete user "${p.full_name || p.email}"? This cannot be undone.`)) return;
@@ -381,6 +418,20 @@ function UsersTab({ isSuperAdmin, currentUserId }: { isSuperAdmin: boolean; curr
                   {new Date(p.created_at).toLocaleDateString()}
                 </div>
                 <div className="flex items-center gap-1">
+                  {isSuperAdmin && (p.role === 'admin' || p.role === 'manager') && !isSelf && (
+                    <button
+                      onClick={() => toggleStar(p.id)}
+                      disabled={togglingStarId === p.id}
+                      title={starredAdmins.has(p.id) ? 'Unstar — stop birthday notifications' : 'Star — receive birthday notifications'}
+                      className={`p-1.5 rounded-md transition-colors disabled:opacity-40 ${
+                        starredAdmins.has(p.id)
+                          ? 'text-amber-500 hover:text-amber-600 hover:bg-amber-50'
+                          : 'text-gray-300 hover:text-amber-400 hover:bg-amber-50'
+                      }`}
+                    >
+                      <Star size={14} fill={starredAdmins.has(p.id) ? 'currentColor' : 'none'} />
+                    </button>
+                  )}
                   {canModify && (
                     <button onClick={() => setEditUser(p)} title="Edit user"
                       className="p-1.5 rounded-md text-gray-400 hover:text-[#3b82f6] hover:bg-blue-50 transition-colors">
