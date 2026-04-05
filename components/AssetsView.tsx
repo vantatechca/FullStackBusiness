@@ -150,7 +150,7 @@ export default function AssetsView() {
     fetch('/api/table-data?table=departments')
       .then(r => r.ok ? r.json() : [])
       .then(d => { if (Array.isArray(d)) setDepartments(d.filter((dept: any) => dept.type === 'standard' || dept.type === 'gmb' || dept.type === 'influencers' || dept.type === 'restock').sort((a: any, b: any) => a.sort_order - b.sort_order)); })
-      .catch(() => {});
+      .catch(() => { toast.error('Failed to load departments'); });
   }, []);
 
   // Build a lookup: asset_id → { date → value }

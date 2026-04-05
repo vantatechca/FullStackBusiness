@@ -29,7 +29,13 @@ export function useRealtimeTable<T extends { id: string }>(
   filterValueRef.current = filter?.value;
   dataRef.current = data;
 
+  const abortRef = useRef<AbortController | null>(null);
+
   const fetchData = useCallback(async () => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
       const params = new URLSearchParams({ table });
       if (filterColumnRef.current && filterValueRef.current) {
@@ -37,7 +43,7 @@ export function useRealtimeTable<T extends { id: string }>(
         params.set('filterValue', filterValueRef.current);
       }
 
-      const res = await fetch(`/api/table-data?${params}`);
+      const res = await fetch(`/api/table-data?${params}`, { signal: controller.signal });
       if (!res.ok) throw new Error('Failed to fetch');
       const rows = await res.json() as T[];
 
@@ -48,19 +54,18 @@ export function useRealtimeTable<T extends { id: string }>(
         rows.some((row, i) => {
           const old = prev[i];
           if (!old || row.id !== old.id) return true;
-          // Quick JSON compare for changed fields
           return JSON.stringify(row) !== JSON.stringify(old);
         });
 
       if (changed) {
         setData(rows);
       }
-    } catch (err) {
-      console.error(`Failed to fetch ${table}:`, err);
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') return;
     } finally {
       setLoading(false);
     }
-  }, [table]); // table is the only real dep — filter read from refs
+  }, [table]);
 
   useEffect(() => {
     setLoading(true);
@@ -70,6 +75,7 @@ export function useRealtimeTable<T extends { id: string }>(
     intervalRef.current = setInterval(fetchData, 30_000);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
+      abortRef.current?.abort();
     };
   }, [fetchData]);
 
@@ -104,7 +110,13 @@ export function useRealtimeSingle<T extends { id?: string; department_id?: strin
   filterValueRef.current = filter.value;
   dataRef.current = data;
 
+  const abortRef = useRef<AbortController | null>(null);
+
   const fetchData = useCallback(async () => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
       const params = new URLSearchParams({
         table,
@@ -113,16 +125,15 @@ export function useRealtimeSingle<T extends { id?: string; department_id?: strin
         single: 'true',
       });
 
-      const res = await fetch(`/api/table-data?${params}`);
+      const res = await fetch(`/api/table-data?${params}`, { signal: controller.signal });
       if (!res.ok) throw new Error('Failed to fetch');
       const row = await res.json() as T | null;
 
-      // Skip re-render if unchanged
       if (JSON.stringify(row) !== JSON.stringify(dataRef.current)) {
         setData(row);
       }
-    } catch (err) {
-      console.error(`Failed to fetch ${table}:`, err);
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') return;
     } finally {
       setLoading(false);
     }
@@ -134,6 +145,7 @@ export function useRealtimeSingle<T extends { id?: string; department_id?: strin
     intervalRef.current = setInterval(fetchData, 30_000);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
+      abortRef.current?.abort();
     };
   }, [fetchData]);
 

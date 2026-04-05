@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { requireAuth, requireDeptAccess, apiHandler } from '@/lib/api-auth';
+import { createRevenueSchema } from '@/lib/validations';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,8 +31,10 @@ export const GET = apiHandler(async (req) => {
 
 // POST /api/revenue  (department_id is now optional)
 export const POST = apiHandler(async (req) => {
-  const body = await req.json();
-  const { department_id, date, source, amount, currency, notes } = body;
+  const raw = await req.json();
+  const parsed = createRevenueSchema.safeParse(raw);
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten().fieldErrors }, { status: 400 });
+  const { department_id, date, source, amount, currency, notes } = parsed.data;
 
   let user;
   if (department_id) {

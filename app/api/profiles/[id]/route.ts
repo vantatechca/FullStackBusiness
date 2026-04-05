@@ -3,6 +3,7 @@ import { sql } from '@/lib/db';
 import bcrypt from 'bcryptjs';
 import { requireAdmin, isSuperAdmin, apiHandler } from '@/lib/api-auth';
 import { logAuditServer } from '@/lib/audit-server';
+import { updateProfileSchema } from '@/lib/validations';
 
 // GET /api/profiles/[id] — admin+ can view any user
 export const GET = apiHandler(async (_req, { params }: { params: { id: string } }) => {
@@ -24,15 +25,13 @@ export const GET = apiHandler(async (_req, { params }: { params: { id: string } 
 export const PATCH = apiHandler(async (req, { params }: { params: { id: string } }) => {
   const user = await requireAdmin();
   const body = await req.json();
-  const { role, full_name, email, password } = body;
+  const parsed = updateProfileSchema.safeParse(body);
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten().fieldErrors }, { status: 400 });
+  const { role, full_name, email, password } = parsed.data;
 
   // Only super_admin can assign super_admin role
   if (role && role === 'super_admin' && !isSuperAdmin(user.role)) {
     return NextResponse.json({ error: 'Only super admins can assign the super admin role' }, { status: 403 });
-  }
-
-  if (role && !['super_admin', 'admin', 'manager', 'lead', 'member'].includes(role)) {
-    return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
   }
 
   // Build dynamic update

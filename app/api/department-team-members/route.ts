@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { requireAuth, requireDeptAccess, apiHandler } from '@/lib/api-auth';
+import { createDeptTeamMemberSchema } from '@/lib/validations';
 
 // GET /api/department-team-members?name=X&department_id=Y  — lookup single row
 // GET /api/department-team-members?department_id=Y         — all rows for a dept
@@ -34,7 +35,10 @@ export const GET = apiHandler(async (req) => {
 
 // POST /api/department-team-members
 export const POST = apiHandler(async (req) => {
-  const body = await req.json();
+  const raw = await req.json();
+  const parsed = createDeptTeamMemberSchema.safeParse(raw);
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten().fieldErrors }, { status: 400 });
+  const body = parsed.data;
   const { department_id } = body;
 
   await requireDeptAccess(department_id);
