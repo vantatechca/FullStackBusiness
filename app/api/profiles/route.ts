@@ -4,6 +4,7 @@ import { sql } from '@/lib/db';
 import bcrypt from 'bcryptjs';
 import { requireAuth, requireAdmin, isAdminOrAbove, isSuperAdmin, apiHandler } from '@/lib/api-auth';
 import { logAuditServer } from '@/lib/audit-server';
+import { createProfileSchema } from '@/lib/validations';
 
 // GET /api/profiles — admin+ gets all, user gets own
 export const GET = apiHandler(async () => {
@@ -27,16 +28,10 @@ export const GET = apiHandler(async () => {
 // POST /api/profiles — admin+ creates users with credentials
 export const POST = apiHandler(async (req) => {
   const user = await requireAdmin();
-  const { email, full_name, role, password } = await req.json();
-
-  if (!email || !password || !full_name) {
-    return NextResponse.json({ error: 'Email, name, and password are required' }, { status: 400 });
-  }
-
-  const validRoles = ['super_admin', 'admin', 'manager', 'lead', 'member'];
-  if (!validRoles.includes(role || 'member')) {
-    return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
-  }
+  const raw = await req.json();
+  const parsed = createProfileSchema.safeParse(raw);
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten().fieldErrors }, { status: 400 });
+  const { email, full_name, role, password } = parsed.data;
 
   // Only super_admin can create super_admin users
   if (role === 'super_admin' && !isSuperAdmin(user.role)) {

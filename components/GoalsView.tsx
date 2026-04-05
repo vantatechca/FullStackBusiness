@@ -73,7 +73,7 @@ export default function GoalsView({ departmentId }: { departmentId?: string }) {
       setDepartments((d || []).filter((dept: any) =>
         ['standard', 'gmb', 'influencers', 'restock'].includes(dept.type)
       ));
-    }).catch(() => {});
+    }).catch(() => { toast.error('Failed to load departments'); });
   }, [fetchGoals]);
 
   // Calculate percentage from stored current_value (manually updated by user)

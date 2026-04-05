@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { requireAuth, requireDeptAccess, apiHandler } from '@/lib/api-auth';
 import { logAuditServer } from '@/lib/audit-server';
+import { createExpenseSchema } from '@/lib/validations';
 
 // GET /api/expenses?deptId=shopify  (deptId is optional — omit to get all expenses)
 export const GET = apiHandler(async (req) => {
@@ -30,8 +31,10 @@ export const GET = apiHandler(async (req) => {
 
 // POST /api/expenses  (department_id is now optional)
 export const POST = apiHandler(async (req) => {
-  const body = await req.json();
-  const { department_id, task_id, date, description, category, amount, currency, paid_by } = body;
+  const raw = await req.json();
+  const parsed = createExpenseSchema.safeParse(raw);
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten().fieldErrors }, { status: 400 });
+  const { department_id, task_id, date, description, category, amount, currency, paid_by } = parsed.data;
 
   let user;
   if (department_id) {

@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { requireAuth, requireDeptAccess, apiHandler } from '@/lib/api-auth';
+import { createTaskSchema } from '@/lib/validations';
 
 // GET /api/tasks?deptId=shopify  (deptId is optional — omit to get all tasks)
 export const GET = apiHandler(async (req) => {
@@ -29,8 +30,10 @@ export const GET = apiHandler(async (req) => {
 
 // POST /api/tasks  (department_id is now optional)
 export const POST = apiHandler(async (req) => {
-  const body = await req.json();
-  const { department_id, task, status, assignee, assignees, deadline, priority, notes, recurrence, goal_target, goal_current } = body;
+  const raw = await req.json();
+  const parsed = createTaskSchema.safeParse(raw);
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten().fieldErrors }, { status: 400 });
+  const { department_id, task, status, assignee, assignees, deadline, priority, notes, recurrence, goal_target, goal_current } = parsed.data;
 
   let user;
   if (department_id) {

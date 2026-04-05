@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { requireAuth, apiHandler } from '@/lib/api-auth';
 import { logAuditServer } from '@/lib/audit-server';
+import { createAssetSchema } from '@/lib/validations';
 
 // GET /api/assets
 export const GET = apiHandler(async () => {
@@ -16,8 +17,10 @@ export const GET = apiHandler(async () => {
 // POST /api/assets
 export const POST = apiHandler(async (req) => {
   const user = await requireAuth();
-  const body = await req.json();
-  const { category, metric, value, previous_value, direction, tracking, sort_order, notes, department_id } = body;
+  const raw = await req.json();
+  const parsed = createAssetSchema.safeParse(raw);
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten().fieldErrors }, { status: 400 });
+  const { category, metric, value, previous_value, direction, tracking, sort_order, notes, department_id } = parsed.data;
   const rows = await sql`
     INSERT INTO public.assets (category, metric, value, previous_value, direction, tracking, sort_order, notes, department_id)
     VALUES (${category}, ${metric}, ${value ?? 0}, ${previous_value ?? 0}, ${direction || 'up_good'}, ${tracking || 'total'}, ${sort_order ?? 0}, ${notes || ''}, ${department_id || null})

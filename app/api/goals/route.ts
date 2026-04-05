@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { requireAuth, apiHandler } from '@/lib/api-auth';
+import { createGoalSchema } from '@/lib/validations';
 
 // GET /api/goals?deptId=shopify  (deptId is optional)
 export const GET = apiHandler(async (req) => {
@@ -28,12 +29,14 @@ export const GET = apiHandler(async (req) => {
 // POST /api/goals
 export const POST = apiHandler(async (req) => {
   const user = await requireAuth();
-  const body = await req.json();
+  const raw = await req.json();
+  const parsed = createGoalSchema.safeParse(raw);
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten().fieldErrors }, { status: 400 });
   const {
     title, type, target_value, current_value,
     currency, department_id, period,
     start_date, end_date, status, notes,
-  } = body;
+  } = parsed.data;
 
   const rows = await sql`
     INSERT INTO public.goals (

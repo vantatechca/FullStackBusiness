@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { requireAuth, apiHandler } from '@/lib/api-auth';
+import { updateTaskSchema } from '@/lib/validations';
 
 export const PATCH = apiHandler(async (req, { params }: { params: { id: string } }) => {
   await requireAuth();
   const body = await req.json();
+  const parsed = updateTaskSchema.safeParse(body);
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten().fieldErrors }, { status: 400 });
 
   // Normalise assignees: accept array or fall back to legacy string
   const assignees: string[] | null =

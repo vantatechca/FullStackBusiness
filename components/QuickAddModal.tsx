@@ -80,16 +80,16 @@ export default function QuickAddModal({ open, onClose, entityType }: QuickAddMod
       setDepartments((Array.isArray(d) ? d : []).filter((dept: any) =>
         ['standard', 'gmb', 'influencers', 'restock'].includes(dept.type)
       ));
-    }).catch(() => {});
+    }).catch(() => { toast.error('Failed to load departments'); });
     if (entityType === 'task') {
       fetch('/api/table-data?table=team_members').then(r => r.json()).then(m => {
         setMembers((Array.isArray(m) ? m : []).map((member: any) => ({ id: member.id, name: member.name })));
-      }).catch(() => {});
+      }).catch(() => { toast.error('Failed to load team members'); });
     }
     if (entityType === 'expense') {
       fetch('/api/table-data?table=tasks').then(r => r.json()).then(t => {
         setTasks((Array.isArray(t) ? t : []).filter((task: any) => task.task).map((task: any) => ({ id: task.id, task: task.task })));
-      }).catch(() => {});
+      }).catch(() => { toast.error('Failed to load tasks'); });
     }
   }, [open, entityType]);
 

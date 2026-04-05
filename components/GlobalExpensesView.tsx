@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { useCurrency } from '@/lib/currency-context';
 import { useAuth } from '@/lib/auth-context';
 import { logAudit } from '@/lib/audit';
 import { convertToUSD } from '@/lib/exchange-rates';
+import { useDepartments } from '@/lib/department-context';
 import SpreadsheetTable from './SpreadsheetTable';
 import type { Expense, ColumnDef } from '@/lib/types';
 import { CURRENCIES } from '@/lib/types';
@@ -28,22 +29,10 @@ export default function GlobalExpensesView() {
   const { profile, canEdit } = useAuth();
   const [filterDept, setFilterDept] = useState<string>('all');
 
-  const deptMapRef = useRef<Record<string, string>>({});
-  const deptIdMapRef = useRef<Record<string, string>>({}); // name → id
+  const { byId: deptById, byName: deptByName } = useDepartments();
 
   const fetchExpenses = useCallback(async () => {
     try {
-      if (Object.keys(deptMapRef.current).length === 0) {
-        const dRes = await fetch('/api/table-data?table=departments');
-        if (dRes.ok) {
-          const depts = await dRes.json();
-          if (Array.isArray(depts)) depts.forEach((d: any) => {
-            deptMapRef.current[d.id] = d.name;
-            deptIdMapRef.current[d.name] = d.id;
-          });
-        }
-      }
-      const deptMap = deptMapRef.current;
       const res = await fetch('/api/table-data?table=expenses');
       if (!res.ok) throw new Error('Failed to fetch');
       const data = await res.json();
@@ -52,15 +41,15 @@ export default function GlobalExpensesView() {
           .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
           .map((e: any) => ({
             ...e,
-            dept_name: e.department_id ? (deptMap[e.department_id] || e.department_id) : 'General',
+            dept_name: e.department_id ? (deptById[e.department_id] || e.department_id) : 'General',
           }))
       );
-    } catch (err) {
-      console.error('Failed to fetch expenses:', err);
+    } catch {
+      toast.error('Failed to fetch expenses');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [deptById]);
 
   useEffect(() => {
     fetchExpenses();
@@ -71,9 +60,9 @@ export default function GlobalExpensesView() {
 
   // Department options for the select column (sorted names + "General")
   const departmentOptions = useMemo(() => {
-    const names = Object.values(deptMapRef.current).sort();
+    const names = Object.values(deptById).sort();
     return ['General', ...names];
-  }, [expenses]); // re-derive when expenses change (ensures deptMap is populated)
+  }, [deptById]);
 
   const totalUSD = expenses.reduce((sum, e) => sum + convertToUSD(Number(e.amount) || 0, e.currency, rates), 0);
 
@@ -134,7 +123,7 @@ export default function GlobalExpensesView() {
     const today = format(new Date(), 'yyyy-MM-dd');
     // If filtering by a specific department, assign new expense to that department
     const deptId = filterDept !== 'all' && filterDept !== 'general' ? filterDept : null;
-    const deptName = deptId ? (deptMapRef.current[deptId] || 'General') : 'General';
+    const deptName = deptId ? (deptById[deptId] || 'General') : 'General';
     const optimistic = {
       id: tempId, department_id: deptId, task_id: null,
       date: today, description: '', category: '',
@@ -156,7 +145,7 @@ export default function GlobalExpensesView() {
       await fetchExpenses();
       toast.error('Failed to add expense');
     }
-  }, [profile?.id, fetchExpenses, filterDept]);
+  }, [profile?.id, fetchExpenses, filterDept, deptById]);
 
   const handleUpdate = useCallback((id: string, key: string, value: string | number | string[]) => {
     if (id.startsWith('temp-')) return;
@@ -164,7 +153,7 @@ export default function GlobalExpensesView() {
     // If updating dept_name, translate to department_id for the API
     if (key === 'dept_name') {
       const deptName = value as string;
-      const deptId = deptName === 'General' ? null : (deptIdMapRef.current[deptName] || null);
+      const deptId = deptName === 'General' ? null : (deptByName[deptName] || null);
       setExpenses(prev => prev.map(row => row.id === id ? { ...row, dept_name: deptName, department_id: deptId } : row));
       fetch(`/api/expenses/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ department_id: deptId }) }).catch(() => { fetchExpenses(); toast.error('Failed to update expense'); });
       return;
@@ -172,7 +161,7 @@ export default function GlobalExpensesView() {
 
     setExpenses(prev => prev.map(row => row.id === id ? { ...row, [key]: value } : row));
     fetch(`/api/expenses/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ [key]: value }) }).catch(() => { fetchExpenses(); toast.error('Failed to update expense'); });
-  }, [fetchExpenses]);
+  }, [fetchExpenses, deptByName]);
 
   const handleDelete = useCallback(async (id: string) => {
     setExpenses(prev => prev.filter(row => row.id !== id));
@@ -196,10 +185,10 @@ export default function GlobalExpensesView() {
     Object.entries(deptCounts)
       .sort(([, a], [, b]) => b - a)
       .forEach(([deptId, count]) => {
-        tabs.push({ id: deptId, label: deptMapRef.current[deptId] || deptId, count });
+        tabs.push({ id: deptId, label: deptById[deptId] || deptId, count });
       });
     return tabs;
-  }, [expenses]);
+  }, [expenses, deptById]);
 
   if (loading) {
     return <div className="space-y-4">{[...Array(4)].map((_, i) => <div key={i} className="h-20 bg-gray-100 rounded-2xl animate-pulse" />)}</div>;

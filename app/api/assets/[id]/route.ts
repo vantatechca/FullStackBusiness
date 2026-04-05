@@ -3,10 +3,13 @@ import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { requireAuth, apiHandler } from '@/lib/api-auth';
 import { logAuditServer } from '@/lib/audit-server';
+import { updateAssetSchema } from '@/lib/validations';
 
 export const PATCH = apiHandler(async (req, { params }: { params: { id: string } }) => {
   const user = await requireAuth();
   const body = await req.json();
+  const parsed = updateAssetSchema.safeParse(body);
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten().fieldErrors }, { status: 400 });
   const hasDeptUpdate = 'department_id' in body;
   const rows = await sql`
     UPDATE public.assets

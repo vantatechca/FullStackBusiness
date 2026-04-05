@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { toast } from 'sonner';
 import {
   ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, Clock, Circle, ListTodo,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
+import { useDepartments } from '@/lib/department-context';
 import SpreadsheetTable from './SpreadsheetTable';
 import type { Task, ColumnDef } from '@/lib/types';
 
@@ -69,20 +70,10 @@ export default function GlobalTasksView() {
   const [memberNames, setMemberNames] = useState<string[]>([]);
   const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
   const { profile, canEdit } = useAuth();
-
-  const deptMapRef = useRef<Record<string, string>>({});
+  const { byId: deptMap } = useDepartments();
 
   const fetchTasks = useCallback(async () => {
     try {
-      // Fetch departments for name lookup if not yet loaded
-      if (Object.keys(deptMapRef.current).length === 0) {
-        const dRes = await fetch('/api/table-data?table=departments');
-        if (dRes.ok) {
-          const depts = await dRes.json();
-          if (Array.isArray(depts)) depts.forEach((d: any) => { deptMapRef.current[d.id] = d.name; });
-        }
-      }
-      const deptMap = deptMapRef.current;
       const res = await fetch('/api/table-data?table=tasks');
       if (!res.ok) throw new Error('Failed to fetch');
       const data = await res.json();
@@ -101,7 +92,7 @@ export default function GlobalTasksView() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [deptMap]);
 
   useEffect(() => {
     fetchTasks();
@@ -112,10 +103,10 @@ export default function GlobalTasksView() {
   useEffect(() => {
     fetch('/api/table-data?table=team_members').then(r => r.json()).then(m => {
       setMemberNames((m || []).map((member: any) => member.name).filter(Boolean).sort());
-    }).catch(() => {});
+    }).catch(() => { toast.error('Failed to load team members'); });
     fetch('/api/departments').then(r => r.json()).then(d => {
       setDepartments((d || []).filter((dept: any) => ['standard', 'gmb', 'influencers', 'restock'].includes(dept.type)));
-    }).catch(() => {});
+    }).catch(() => { toast.error('Failed to load departments'); });
   }, []);
 
   const columns: ColumnDef[] = useMemo(() =>
