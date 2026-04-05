@@ -1,4 +1,4 @@
-import { ChartBar as BarChart3, ShoppingCart, Megaphone, Store, PenLine, Dice5, Headphones, CreditCard, MapPin, Users, Smartphone, Dna, Package, CircleUser as UserCircle, SquareCheck as CheckSquare, Wallet, TrendingUp, ShieldCheck, DollarSign, Sparkles } from 'lucide-react';
+import { ChartBar as BarChart3, ShoppingCart, Megaphone, Store, PenLine, Dice5, Headphones, CreditCard, MapPin, Users, Smartphone, Dna, Package, CircleUser as UserCircle, SquareCheck as CheckSquare, Wallet, TrendingUp, ShieldCheck, DollarSign, Sparkles, Cake } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Department } from './types';
 
@@ -23,6 +23,7 @@ export const DEPARTMENT_ICONS: Record<string, LucideIcon> = {
   ShieldCheck,
   DollarSign,
   Sparkles,
+  Cake,
 };
 
 // Only system/structural pages are listed here.
@@ -36,7 +37,8 @@ export const DEPARTMENTS: Department[] = [
   { id: 'expenses-global',  name: 'Expenses (Global)',   icon: 'Wallet',      type: 'expenses-global', sort_order: 103, priority_score: 0, color: '#3b82f6', description: '' },
   { id: 'net-profit',       name: 'Net Profit',          icon: 'TrendingUp',  type: 'net-profit',      sort_order: 104, priority_score: 0, color: '#3b82f6', description: '' },
   { id: 'checkins',          name: 'Check-Ins',           icon: 'Sparkles',    type: 'checkins',        sort_order: 105, priority_score: 0, color: '#3b82f6', description: '' },
-  { id: 'admin',            name: 'Admin Panel',         icon: 'ShieldCheck', type: 'admin',           sort_order: 106, priority_score: 0, color: '#3b82f6', description: '' },
+  { id: 'birthdays',        name: 'Birthdays',           icon: 'Cake',        type: 'birthdays',       sort_order: 106, priority_score: 0, color: '#ec4899', description: '' },
+  { id: 'admin',            name: 'Admin Panel',         icon: 'ShieldCheck', type: 'admin',           sort_order: 107, priority_score: 0, color: '#3b82f6', description: '' },
 ];
 
 export function getDepartment(id: string): Department | undefined {

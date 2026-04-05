@@ -8,7 +8,7 @@ import {
   PanelLeftClose, PanelLeft, Search, LogOut, Plus,
   MoreHorizontal, Pencil, Trash2, Check, X, GripVertical,
   LayoutDashboard, CheckSquare, Wallet, Users, TrendingUp, DollarSign, BarChart3,
-  Sparkles,
+  Sparkles, Cake,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { DEPARTMENT_ICONS } from '@/lib/departments';
@@ -262,8 +262,12 @@ export default function Sidebar() {
     if (isManager) {
       items.push({ id: 'checkins', label: 'Check-Ins', icon: Sparkles });
     }
+    // Birthdays page visible to admin+
+    if (isAdmin) {
+      items.push({ id: 'birthdays', label: 'Birthdays', icon: Cake });
+    }
     return items;
-  }, [isManager]);
+  }, [isManager, isAdmin]);
 
   // Department items (only standard/gmb/influencers/restock types)
   const mainDepts = useMemo(() => departments.filter(d => {
