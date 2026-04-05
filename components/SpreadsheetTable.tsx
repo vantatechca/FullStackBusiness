@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, memo, useCallback } from 'react';
-import { X, Plus, ChevronDown } from 'lucide-react';
+import { X, Plus, ChevronDown, Trash2 } from 'lucide-react';
 import type { ColumnDef } from '@/lib/types';
 
 // ── Avatar helpers ────────────────────────────────────────────────────────────
@@ -452,6 +452,196 @@ const TableRow = memo(function TableRow({
   );
 });
 
+// ── Row Edit Modal ──────────────────────────────────────────────────────────
+// Click any row to edit all fields in a clean modal form instead of inline.
+
+function RowEditModal({
+  open, row, columns, onClose, onUpdate, onDelete,
+}: {
+  open: boolean;
+  row: any;
+  columns: ColumnDef[];
+  onClose: () => void;
+  onUpdate: (id: string, key: string, value: string | number | string[]) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [draft, setDraft] = useState<Record<string, any>>({});
+
+  useEffect(() => {
+    if (open && row) {
+      const d: Record<string, any> = {};
+      columns.forEach(col => {
+        if ((col.type as string) === 'progress') return;
+        d[col.key] = row[col.key] ?? (col.type === 'multi-select' ? [] : '');
+      });
+      setDraft(d);
+    }
+  }, [open, row, columns]);
+
+  if (!open || !row) return null;
+
+  const handleSave = () => {
+    columns.forEach(col => {
+      if ((col.type as string) === 'progress') return;
+      const oldVal = row[col.key];
+      const newVal = draft[col.key];
+      if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
+        onUpdate(row.id, col.key, newVal);
+      }
+    });
+    onClose();
+  };
+
+  const handleDelete = () => {
+    onDelete(row.id);
+    onClose();
+  };
+
+  const editableColumns = columns.filter(c => (c.type as string) !== 'progress');
+
+  const inputCls = 'w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] outline-none transition-all';
+  const labelCls = 'block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+          <h2 className="text-base font-bold text-gray-900">Edit Entry</h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+          {editableColumns.map(col => {
+            const val = draft[col.key];
+
+            if (col.type === 'multi-select') {
+              const selected = Array.isArray(val) ? val : [];
+              return (
+                <div key={col.key}>
+                  <label className={labelCls}>{col.label}</label>
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {selected.map((name: string) => (
+                      <span key={name} className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium">
+                        {name}
+                        <button onClick={() => setDraft(d => ({ ...d, [col.key]: selected.filter((n: string) => n !== name) }))}
+                          className="text-blue-400 hover:text-blue-600"><X size={11} /></button>
+                      </span>
+                    ))}
+                  </div>
+                  {col.options && col.options.length > 0 && (
+                    <select
+                      value=""
+                      onChange={e => {
+                        if (e.target.value && !selected.includes(e.target.value)) {
+                          setDraft(d => ({ ...d, [col.key]: [...selected, e.target.value] }));
+                        }
+                      }}
+                      className={inputCls}
+                    >
+                      <option value="">Add {col.label.toLowerCase()}...</option>
+                      {col.options.filter(o => !selected.includes(o)).map(o => (
+                        <option key={o} value={o}>{o}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              );
+            }
+
+            if (col.type === 'select') {
+              return (
+                <div key={col.key}>
+                  <label className={labelCls}>{col.label}</label>
+                  <select value={String(val || '')} onChange={e => setDraft(d => ({ ...d, [col.key]: e.target.value }))}
+                    className={inputCls}>
+                    <option value="">Select...</option>
+                    {col.options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                  </select>
+                </div>
+              );
+            }
+
+            if ((col.type as string) === 'combobox') {
+              return (
+                <div key={col.key}>
+                  <label className={labelCls}>{col.label}</label>
+                  <input
+                    type="text"
+                    list={`list-${col.key}`}
+                    value={String(val || '')}
+                    onChange={e => setDraft(d => ({ ...d, [col.key]: e.target.value }))}
+                    className={inputCls}
+                    placeholder={`Enter or select ${col.label.toLowerCase()}`}
+                  />
+                  {col.options && (
+                    <datalist id={`list-${col.key}`}>
+                      {col.options.map(o => <option key={o} value={o} />)}
+                    </datalist>
+                  )}
+                </div>
+              );
+            }
+
+            if (col.type === 'date') {
+              return (
+                <div key={col.key}>
+                  <label className={labelCls}>{col.label}</label>
+                  <input type="date" value={String(val || '')} onChange={e => setDraft(d => ({ ...d, [col.key]: e.target.value }))}
+                    className={inputCls} />
+                </div>
+              );
+            }
+
+            if (col.type === 'number') {
+              return (
+                <div key={col.key}>
+                  <label className={labelCls}>{col.label}</label>
+                  <input type="number" step="any" value={val === 0 ? '0' : (val || '')}
+                    onChange={e => setDraft(d => ({ ...d, [col.key]: e.target.value === '' ? 0 : parseFloat(e.target.value) }))}
+                    className={inputCls} />
+                </div>
+              );
+            }
+
+            // text — use textarea for notes-like fields, input for others
+            const isLong = col.key === 'notes' || col.key === 'description' || (col.width && parseInt(col.width) >= 180);
+            return (
+              <div key={col.key}>
+                <label className={labelCls}>{col.label}</label>
+                {isLong ? (
+                  <textarea value={String(val || '')} onChange={e => setDraft(d => ({ ...d, [col.key]: e.target.value }))}
+                    rows={3} className={`${inputCls} resize-none`} />
+                ) : (
+                  <input type="text" value={String(val || '')} onChange={e => setDraft(d => ({ ...d, [col.key]: e.target.value }))}
+                    className={inputCls} />
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 bg-gray-50/50 shrink-0">
+          <button onClick={handleDelete}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 rounded-xl transition-colors">
+            <Trash2 size={13} /> Delete
+          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={onClose}
+              className="px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">Cancel</button>
+            <button onClick={handleSave}
+              className="px-4 py-2.5 bg-[#3b82f6] text-white text-sm font-medium rounded-xl hover:bg-[#2563eb] transition-colors shadow-sm">
+              Save Changes
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── SpreadsheetTable ──────────────────────────────────────────────────────────
 interface SpreadsheetTableProps {
   columns: ColumnDef[];
@@ -474,11 +664,13 @@ export default function SpreadsheetTable({
   loading,
   readOnly,
 }: SpreadsheetTableProps) {
+  const [editingRow, setEditingRow] = useState<any>(null);
+
   if (loading) {
     return (
       <div className="space-y-2">
         {[...Array(3)].map((_, i) => (
-          <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />
+          <div key={i} className="h-10 bg-gray-100 rounded-xl animate-pulse" />
         ))}
       </div>
     );
@@ -492,7 +684,7 @@ export default function SpreadsheetTable({
         </p>
         <button
           onClick={onAdd}
-          className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#3b82f6] text-white text-sm rounded-lg hover:bg-[#2563eb] transition-colors"
+          className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-[#3b82f6] text-white text-sm font-medium rounded-xl hover:bg-[#2563eb] transition-colors shadow-sm"
         >
           <Plus size={15} />
           {addLabel}
@@ -511,7 +703,7 @@ export default function SpreadsheetTable({
 
   return (
     <div>
-      <div className="overflow-x-auto border border-gray-200 rounded-lg">
+      <div className="overflow-x-auto border border-gray-200 rounded-2xl">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b-2 border-gray-200">
@@ -532,15 +724,29 @@ export default function SpreadsheetTable({
           </thead>
           <tbody>
             {data.map((row, idx) => (
-              <TableRow
+              <tr
                 key={row.id}
-                row={row}
-                idx={idx}
-                columns={columns}
-                onUpdate={onUpdate}
-                onDelete={onDelete}
-                readOnly={readOnly}
-              />
+                className={`border-b border-gray-100 ${idx % 2 === 1 ? 'bg-[#fafbfc]' : 'bg-white'} ${!readOnly ? 'cursor-pointer hover:bg-blue-50/40' : 'hover:bg-blue-50/20'} transition-colors`}
+                onClick={!readOnly ? () => setEditingRow(row) : undefined}
+              >
+                {columns.map(col => (
+                  <td key={col.key} className="px-3 py-2 align-top">
+                    <span className="text-sm text-gray-700 block whitespace-pre-wrap break-words leading-snug">
+                      {renderCellValue(row[col.key], col, row)}
+                    </span>
+                  </td>
+                ))}
+                {!readOnly && (
+                  <td className="px-1.5 py-2 text-center align-top">
+                    <button
+                      onClick={e => { e.stopPropagation(); onDelete(row.id); }}
+                      className="p-1 rounded hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors"
+                    >
+                      <X size={14} />
+                    </button>
+                  </td>
+                )}
+              </tr>
             ))}
           </tbody>
         </table>
@@ -549,12 +755,40 @@ export default function SpreadsheetTable({
       {!readOnly && (
         <button
           onClick={onAdd}
-          className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 bg-[#3b82f6] text-white text-sm rounded-lg hover:bg-[#2563eb] transition-colors"
+          className="mt-3 inline-flex items-center gap-1.5 px-4 py-2.5 bg-[#3b82f6] text-white text-sm font-medium rounded-xl hover:bg-[#2563eb] transition-colors shadow-sm"
         >
           <Plus size={15} />
           {addLabel}
         </button>
       )}
+
+      {/* Row Edit Modal */}
+      {!readOnly && (
+        <RowEditModal
+          open={!!editingRow}
+          row={editingRow}
+          columns={columns}
+          onClose={() => setEditingRow(null)}
+          onUpdate={onUpdate}
+          onDelete={onDelete}
+        />
+      )}
     </div>
   );
+}
+
+// ── Helper to render cell values for display (read-only in table) ─────────
+function renderCellValue(value: any, col: ColumnDef, row: any): string {
+  if ((col.type as string) === 'progress') {
+    const target = Number(row.goal_target || 0);
+    const current = Number(row.goal_current || 0);
+    if (target <= 0) return '—';
+    return `${Math.min(Math.round((current / target) * 100), 100)}%`;
+  }
+  if (col.type === 'multi-select' || Array.isArray(value)) {
+    return Array.isArray(value) ? value.filter(Boolean).join(', ') : '';
+  }
+  if (value === null || value === undefined || value === '') return '—';
+  if (col.type === 'number') return Number(value).toLocaleString();
+  return String(value);
 }

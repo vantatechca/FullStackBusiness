@@ -9,6 +9,7 @@ import {
   Loader as Loader2, Search, Activity, ChevronLeft, ChevronRight, Star,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { Modal, btnPrimaryCls, btnSecondaryCls, inputCls, errorBoxCls } from '@/components/ui/shared';
 
 type AdminTab = 'users' | 'system-logs';
 
@@ -87,34 +88,27 @@ function CreateUserModal({
     }
   };
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={handleClose}>
-      <div className="bg-white rounded-xl border border-gray-200 shadow-2xl w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Create New User</h3>
-          <button onClick={handleClose} className="p-1 rounded-md hover:bg-gray-100 text-gray-400"><X size={18} /></button>
-        </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+    <Modal open={open} onClose={handleClose} title="Create New User" size="sm">
+      <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg border border-red-100">{error}</div>
+            <div className={errorBoxCls}>{error}</div>
           )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
             <input type="text" value={fullName} onChange={e => setFullName(e.target.value)} required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] outline-none" placeholder="John Doe" />
+              className={inputCls} placeholder="John Doe" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
             <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] outline-none" placeholder="user@company.com" />
+              className={inputCls} placeholder="user@company.com" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
             <div className="relative">
               <input type={showPass ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} required minLength={6}
-                className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] outline-none" placeholder="Min. 6 characters" />
+                className={`${inputCls} pr-10`} placeholder="Min. 6 characters" />
               <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                 {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
@@ -123,7 +117,7 @@ function CreateUserModal({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
             <select value={role} onChange={e => setRole(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] outline-none">
+              className={inputCls}>
               <option value="member">Member</option>
               <option value="lead">Lead</option>
               <option value="manager">Manager</option>
@@ -132,16 +126,14 @@ function CreateUserModal({
             </select>
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={handleClose} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">Cancel</button>
-            <button type="submit" disabled={saving}
-              className="px-4 py-2 bg-[#3b82f6] text-white text-sm font-medium rounded-lg hover:bg-[#2563eb] transition-colors disabled:opacity-60 flex items-center gap-2">
+            <button type="button" onClick={handleClose} className={btnSecondaryCls}>Cancel</button>
+            <button type="submit" disabled={saving} className={btnPrimaryCls}>
               {saving && <Loader2 size={14} className="animate-spin" />}
               Create User
             </button>
           </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </Modal>
   );
 }
 
@@ -214,31 +206,26 @@ function EditUserModal({
   const isSelf = user.id === currentUserId;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={handleClose}>
-      <div className="bg-white rounded-xl border border-gray-200 shadow-2xl w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Edit User</h3>
-          <button onClick={handleClose} className="p-1 rounded-md hover:bg-gray-100 text-gray-400"><X size={18} /></button>
-        </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+    <Modal open={open} onClose={handleClose} title="Edit User" size="sm">
+      <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg border border-red-100">{error}</div>
+            <div className={errorBoxCls}>{error}</div>
           )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
             <input type="text" value={fullName} onChange={e => setFullName(e.target.value)} required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] outline-none" />
+              className={inputCls} />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
             <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] outline-none" />
+              className={inputCls} />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">New Password <span className="text-gray-400 font-normal">(leave blank to keep current)</span></label>
             <div className="relative">
               <input type={showPass ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} minLength={6}
-                className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] outline-none" placeholder="Min. 6 characters" />
+                className={`${inputCls} pr-10`} placeholder="Min. 6 characters" />
               <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                 {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
@@ -247,7 +234,7 @@ function EditUserModal({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
             <select value={role} onChange={e => setRole(e.target.value)} disabled={isSelf}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] outline-none disabled:bg-gray-50 disabled:text-gray-400">
+              className={`${inputCls} disabled:bg-gray-50 disabled:text-gray-400`}>
               <option value="member">Member</option>
               <option value="lead">Lead</option>
               <option value="manager">Manager</option>
@@ -257,16 +244,14 @@ function EditUserModal({
             {isSelf && <p className="text-xs text-gray-400 mt-1">You cannot change your own role.</p>}
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={handleClose} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">Cancel</button>
-            <button type="submit" disabled={saving}
-              className="px-4 py-2 bg-[#3b82f6] text-white text-sm font-medium rounded-lg hover:bg-[#2563eb] transition-colors disabled:opacity-60 flex items-center gap-2">
+            <button type="button" onClick={handleClose} className={btnSecondaryCls}>Cancel</button>
+            <button type="submit" disabled={saving} className={btnPrimaryCls}>
               {saving && <Loader2 size={14} className="animate-spin" />}
               Save Changes
             </button>
           </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </Modal>
   );
 }
 

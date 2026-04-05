@@ -21,7 +21,7 @@ export interface Department {
   id: string;
   name: string;
   icon: string;
-  type: 'overview' | 'standard' | 'gmb' | 'influencers' | 'restock' | 'team' | 'tasks' | 'assets' | 'expenses-global' | 'revenue-global' | 'net-profit' | 'checkins' | 'admin';
+  type: 'overview' | 'standard' | 'gmb' | 'influencers' | 'restock' | 'team' | 'tasks' | 'assets' | 'expenses-global' | 'revenue-global' | 'net-profit' | 'checkins' | 'birthdays' | 'admin';
   sort_order: number;
   priority_score: number;
   color: string;

@@ -17,6 +17,7 @@ import NetProfitView from '@/components/NetProfitView';
 import AdminPanel from '@/components/AdminPanel';
 import AssetsView from '@/components/AssetsView';
 import CheckInHistoryView from '@/components/CheckInHistoryView';
+import BirthdayManagement from '@/components/BirthdayManagement';
 
 interface Department {
   id: string;
@@ -115,6 +116,8 @@ export default function DepartmentPage({ params }: { params: { deptId: string } 
       return <AdminPanel />;
     case 'checkins':
       return <CheckInHistoryView />;
+    case 'birthdays':
+      return <BirthdayManagement />;
     default:
       // All dynamically created departments land here — StandardDepartment
       // is the universal fallback with tasks, team, expenses tabs built in

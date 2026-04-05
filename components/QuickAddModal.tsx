@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { X, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { CURRENCIES } from '@/lib/types';
+import { inputCls, labelCls, selectCls, btnPrimaryCls, btnSecondaryCls } from '@/components/ui/shared';
 
 type EntityType = 'task' | 'expense' | 'member';
 
@@ -18,12 +19,12 @@ interface QuickAddModalProps {
 function ModalShell({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-hidden flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <h2 className="text-base font-bold text-gray-900">{title}</h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors" aria-label="Close">
             <X size={18} />
           </button>
         </div>
@@ -33,9 +34,6 @@ function ModalShell({ open, onClose, title, children }: { open: boolean; onClose
   );
 }
 
-const inputCls = "w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] outline-none transition-all";
-const labelCls = "block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5";
-const selectCls = "w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#3b82f6] outline-none appearance-none bg-white";
 
 export default function QuickAddModal({ open, onClose, entityType }: QuickAddModalProps) {
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -262,13 +260,13 @@ export default function QuickAddModal({ open, onClose, entityType }: QuickAddMod
           </>
         )}
 
-        {error && <div className="px-3 py-2.5 bg-red-50 border border-red-100 rounded-lg text-sm text-red-600 font-medium">{error}</div>}
-        {success && <div className="px-3 py-2.5 bg-emerald-50 border border-emerald-100 rounded-lg text-sm text-emerald-600 font-medium">{success}</div>}
+        {error && <div className="px-4 py-3 bg-rose-50 border border-rose-100 rounded-xl text-sm text-rose-600 font-medium">{error}</div>}
+        {success && <div className="px-4 py-3 bg-emerald-50 border border-emerald-100 rounded-xl text-sm text-emerald-600 font-medium">{success}</div>}
       </div>
 
       <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 bg-gray-50/50">
-        <button onClick={handleClose} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancel</button>
-        <button onClick={handleSubmit} disabled={submitting} className="px-5 py-2.5 bg-[#3b82f6] text-white text-sm font-medium rounded-lg hover:bg-[#2563eb] transition-colors shadow-sm disabled:opacity-50">
+        <button onClick={handleClose} className="px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">Cancel</button>
+        <button onClick={handleSubmit} disabled={submitting} className="px-5 py-2.5 bg-[#3b82f6] text-white text-sm font-medium rounded-xl hover:bg-[#2563eb] transition-colors shadow-sm disabled:opacity-50">
           {submitting ? 'Creating...' : btnLabels[entityType]}
         </button>
       </div>
