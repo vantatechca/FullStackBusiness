@@ -4,9 +4,11 @@
 import { useAuth } from '@/lib/auth-context';
 import { CurrencyProvider } from '@/lib/currency-context';
 import { DepartmentProvider } from '@/lib/department-context';
+import { CheckInProvider, useCheckIn } from '@/lib/checkin-context';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 import QuickAddButton from '@/components/QuickAddButton';
+import CheckInModal from '@/components/CheckInModal';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
@@ -33,17 +35,34 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <CurrencyProvider>
       <DepartmentProvider>
-        <div className="flex min-h-screen bg-[#f8fafc]">
-          <Sidebar />
-          <div className="flex-1 flex flex-col min-w-0">
-            <TopBar />
-            <main className="flex-1 p-6 overflow-x-hidden">
-              {children}
-            </main>
-          </div>
-          <QuickAddButton />
-        </div>
+        <CheckInProvider>
+          <DashboardShell>{children}</DashboardShell>
+        </CheckInProvider>
       </DepartmentProvider>
     </CurrencyProvider>
+  );
+}
+
+function DashboardShell({ children }: { children: React.ReactNode }) {
+  const { showModal, closeCheckIn, markComplete } = useCheckIn();
+
+  return (
+    <>
+      <div className="flex min-h-screen bg-[#f8fafc]">
+        <Sidebar />
+        <div className="flex-1 flex flex-col min-w-0">
+          <TopBar />
+          <main className="flex-1 p-6 overflow-x-hidden">
+            {children}
+          </main>
+        </div>
+        <QuickAddButton />
+      </div>
+      <CheckInModal
+        open={showModal}
+        onClose={closeCheckIn}
+        onComplete={markComplete}
+      />
+    </>
   );
 }

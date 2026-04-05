@@ -8,10 +8,12 @@ import {
   PanelLeftClose, PanelLeft, Search, LogOut, Plus,
   MoreHorizontal, Pencil, Trash2, Check, X, GripVertical,
   LayoutDashboard, CheckSquare, Wallet, Users, TrendingUp, DollarSign, BarChart3,
+  Sparkles,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { DEPARTMENT_ICONS } from '@/lib/departments';
 import { useAuth } from '@/lib/auth-context';
+import { useCheckIn } from '@/lib/checkin-context';
 import AddDepartmentModal from '@/components/add-department-modal';
 
 const SIDEBAR_MIN = 200;
@@ -174,7 +176,8 @@ export default function Sidebar() {
   const saveTimer    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pathname     = usePathname();
   const router       = useRouter();
-  const { canAccessDepartment, signOut, profile, loading, isAdmin, isSuperAdmin, canEdit } = useAuth();
+  const { canAccessDepartment, signOut, profile, loading, isAdmin, isSuperAdmin, isManager, canEdit } = useAuth();
+  const { openCheckIn, hasCheckedIn } = useCheckIn();
 
   // ── Drag-to-resize ──────────────────────────────────────────────────────
   const onResizePointerDown = useCallback((e: React.PointerEvent) => {
@@ -245,15 +248,22 @@ export default function Sidebar() {
   }, [persistOrder]);
 
   // Top-level nav items (not department-bound)
-  const TOP_NAV = useMemo(() => [
-    { id: 'dashboard',        label: 'Dashboard',    icon: LayoutDashboard },
-    { id: 'assets',           label: 'Assets',       icon: BarChart3       },
-    { id: 'tasks-daily-goals', label: 'All Tasks',    icon: CheckSquare     },
-    { id: 'revenue-global',   label: 'All Revenue',  icon: DollarSign     },
-    { id: 'expenses-global',  label: 'All Expenses', icon: Wallet         },
-    { id: 'team-members',     label: 'Team',         icon: Users           },
-    { id: 'net-profit',       label: 'Net Profit', icon: TrendingUp      },
-  ], []);
+  const TOP_NAV = useMemo(() => {
+    const items = [
+      { id: 'dashboard',        label: 'Dashboard',    icon: LayoutDashboard },
+      { id: 'assets',           label: 'Assets',       icon: BarChart3       },
+      { id: 'tasks-daily-goals', label: 'All Tasks',    icon: CheckSquare     },
+      { id: 'revenue-global',   label: 'All Revenue',  icon: DollarSign     },
+      { id: 'expenses-global',  label: 'All Expenses', icon: Wallet         },
+      { id: 'team-members',     label: 'Team',         icon: Users           },
+      { id: 'net-profit',       label: 'Net Profit',   icon: TrendingUp      },
+    ];
+    // Check-Ins page visible to manager+ (to review team check-ins)
+    if (isManager) {
+      items.push({ id: 'checkins', label: 'Check-Ins', icon: Sparkles });
+    }
+    return items;
+  }, [isManager]);
 
   // Department items (only standard/gmb/influencers/restock types)
   const mainDepts = useMemo(() => departments.filter(d => {
@@ -357,6 +367,20 @@ export default function Sidebar() {
             </div>
           ) : (
             <>
+              {/* ── Check-In Button ── */}
+              {hasCheckedIn === false && (
+                <div className="mb-2">
+                  <button
+                    onClick={openCheckIn}
+                    title={collapsed ? 'Daily Check-In' : undefined}
+                    className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-sm transition-colors bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 text-[#3b82f6] hover:from-blue-100 hover:to-indigo-100"
+                  >
+                    <Sparkles size={16} className="text-[#3b82f6] shrink-0" />
+                    {!collapsed && <span className="text-[13px] font-semibold">Daily Check-In</span>}
+                  </button>
+                </div>
+              )}
+
               {/* ── Top-level navigation ── */}
               <div className="mb-1">
                 {!collapsed && <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-2.5 mb-1.5">Main</p>}
